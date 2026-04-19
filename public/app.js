@@ -277,13 +277,8 @@ function getAuthHeader() {
   return v ? { Authorization: 'Bearer ' + v } : {};
 }
 
-function setAuth(token) {
-  localStorage.setItem(AUTH_KEY, token);
-}
-
-function clearAuth() {
-  localStorage.removeItem(AUTH_KEY);
-}
+function setAuth(token) { localStorage.setItem(AUTH_KEY, token); }
+function clearAuth() { localStorage.removeItem(AUTH_KEY); }
 
 async function apiFetch(url, init = {}) {
   const res = await fetch(url, {
