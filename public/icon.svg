@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#1c2230"/>
+      <stop offset="100%" stop-color="#0b0d11"/>
+    </radialGradient>
+    <linearGradient id="socketGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#5a6474"/>
+      <stop offset="100%" stop-color="#1d2230"/>
+    </linearGradient>
+    <radialGradient id="ledGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="60%" stop-color="#22c55e" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <g transform="translate(0 40)">
+    <path d="M 232 380 L 372 240 L 652 240 L 792 380 L 792 820 L 232 820 Z"
+          fill="url(#socketGrad)" stroke="#6a7282" stroke-width="10" stroke-linejoin="round"/>
+    <rect x="344" y="500" width="128" height="34" rx="4" fill="#07090c"/>
+    <rect x="552" y="500" width="128" height="34" rx="4" fill="#07090c"/>
+    <rect x="448" y="716" width="128" height="34" rx="4" fill="#07090c"/>
+  </g>
+
+  <circle cx="512" cy="150" r="96" fill="url(#ledGlow)"/>
+  <circle cx="512" cy="150" r="36" fill="#22c55e"/>
+  <circle cx="502" cy="140" r="10" fill="#a7f3d0"/>
+</svg>
