@@ -37,9 +37,9 @@ All runtime config comes from environment variables (or `.env` file in the proje
 | `PDU_SNMP_V3_USER`         | yes      | SNMPv3 user for writes |
 | `PDU_SNMP_V3_AUTH_PASS`    | yes      | SNMPv3 auth passphrase |
 | `PDU_SNMP_V3_PRIV_PASS`    | yes      | SNMPv3 priv passphrase |
-| `PDU_SNMP_V3_AUTH_PROTO`   | no       | Default: MD5 (device-specific) |
-| `PDU_SNMP_V3_PRIV_PROTO`   | no       | Default: AES (device-specific) |
 | `PORT`                     | no       | HTTP listen port. Default: 3000 |
+
+SNMPv3 auth/priv protocols are hardcoded to MD5 + AES (the only combination the PE8208G responds to).
 
 `.env.example`:
 
@@ -50,8 +50,6 @@ PDU_SNMP_WRITE_COMMUNITY=private
 PDU_SNMP_V3_USER=kolo
 PDU_SNMP_V3_AUTH_PASS=changeme
 PDU_SNMP_V3_PRIV_PASS=changeme
-PDU_SNMP_V3_AUTH_PROTO=MD5
-PDU_SNMP_V3_PRIV_PROTO=AES
 ```
 
 Never commit `.env` — it is listed in `.gitignore` and `.dockerignore`.
