@@ -2,16 +2,23 @@
 #
 # All runtime config is read from the .env file next to this compose file.
 # See README.md for the full env reference. At minimum you need:
-#   PDU_HOST, PDU_SNMP_READ_COMMUNITY,
+#   PDU_HOST
+#   PDU_SNMP_READ_COMMUNITY
 #   PDU_SNMP_V3_USER, PDU_SNMP_V3_AUTH_PASS, PDU_SNMP_V3_PRIV_PASS
-# Optional but recommended for public exposure:
-#   BASIC_AUTH_USER, BASIC_AUTH_PASS
+# Optional but recommended when exposed beyond a trusted network:
+#   AUTH_TOKEN              # generate with: openssl rand -hex 32
+# Other knobs:
+#   ELECTRICITY_RATE_PER_KWH (default 0.61)
+#   CURRENCY_SYMBOL          (default ₪)
+#   LOG_LEVEL                (error|warn|info|debug, default info)
+#   PORT                     (default 3000)
 
 services:
   pdu-controller:
-    # Pick one: build locally, or pull the image produced by GitLab CI.
+    # Pick one: build locally, pull from GitLab registry, or pull from ghcr.io.
     build: .
     # image: registry.gitlab.com/kolobus/aten-pe8208g-webui:latest
+    # image: ghcr.io/kolobus/aten-pe8208g-webui:latest
 
     container_name: pdu-controller
     restart: unless-stopped
@@ -19,8 +26,8 @@ services:
     ports:
       - "3000:3000"
 
-    # Dockerfile already defines HEALTHCHECK against /live.
-    # Uncomment to override the interval or test command:
+    # Dockerfile already defines HEALTHCHECK against /live (3-min interval).
+    # Uncomment to override:
     # healthcheck:
     #   interval: 1m
     #   timeout: 5s
