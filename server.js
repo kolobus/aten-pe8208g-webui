@@ -24,12 +24,21 @@ const NUM_OUTLETS = 8;
 const ELECTRICITY_RATE = Number.parseFloat(process.env.ELECTRICITY_RATE_ILS_PER_KWH ?? '0.61');
 const HOURS_PER_MONTH = 730;
 const BASE = '1.3.6.1.4.1.21317.1.3.2.2.2.2';
-const commandOid = n => `${BASE}.${n + 1}.0`;
-const currentOid = n => `${BASE}.1.1.2.${n}`;
-const voltageOid = n => `${BASE}.1.1.3.${n}`;
-const powerOid   = n => `${BASE}.1.1.4.${n}`;
-const energyOid  = n => `${BASE}.1.1.5.${n}`;
-const nameOid    = n => `${BASE}.10.1.2.${n}`;
+const commandOid          = n => `${BASE}.${n + 1}.0`;
+const currentOid          = n => `${BASE}.1.1.2.${n}`;
+const voltageOid          = n => `${BASE}.1.1.3.${n}`;
+const powerOid            = n => `${BASE}.1.1.4.${n}`;
+const energyOid           = n => `${BASE}.1.1.5.${n}`;
+const nameOid             = n => `${BASE}.10.1.2.${n}`;
+const shutdownMethodOid   = n => `${BASE}.10.1.6.${n}`;
+const macOid              = n => `${BASE}.10.1.7.${n}`;
+
+const SHUTDOWN_METHODS = {
+  1: 'kill-the-power',
+  2: 'wake-on-lan',
+  3: 'after-ac-back',
+  4: 'not-support',
+};
 
 const NAME_MAX_LEN = 16;
 const NAME_RE = /^[A-Za-z0-9_ ]+$/;
@@ -133,23 +142,93 @@ app.get('/live', (_req, res) => res.type('text/plain').send('OK'));
 
 app.use(['/api', '/health'], requireAuth);
 
+const SYS_NAME_OID     = '1.3.6.1.2.1.1.5.0';
+const SYS_CONTACT_OID  = '1.3.6.1.2.1.1.4.0';
+const SYS_LOCATION_OID = '1.3.6.1.2.1.1.6.0';
+const SYS_UPTIME_OID   = '1.3.6.1.2.1.1.3.0';
+
+const DEVICE_FIELDS = {
+  name:     { oid: SYS_NAME_OID,     max: 32 },
+  contact:  { oid: SYS_CONTACT_OID,  max: 63 },
+  location: { oid: SYS_LOCATION_OID, max: 63 },
+};
+const DEVICE_FIELD_RE = /^[A-Za-z0-9_. ]+$/;
+
+app.put('/api/device/:field', async (req, res) => {
+  const f = DEVICE_FIELDS[req.params.field];
+  if (!f) return res.status(404).json({ error: 'unknown device field' });
+  const v = typeof req.body?.value === 'string' ? req.body.value.trim() : '';
+  if (!v || v.length > f.max) {
+    return res.status(400).json({ error: `value must be 1–${f.max} chars` });
+  }
+  if (!DEVICE_FIELD_RE.test(v)) {
+    return res.status(400).json({ error: 'letters, digits, underscore, period, space only' });
+  }
+  try {
+    await snmpSet(writeSession, f.oid, Buffer.from(v, 'utf8'), snmp.ObjectType.OctetString);
+    log('info', `device.${req.params.field}`, { value: v, ip: req.ip });
+    res.json({ ok: true, field: req.params.field, value: v });
+  } catch (err) {
+    log('error', `device.${req.params.field}.failed`, { value: v, message: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+const BANK_AMPS_OID    = '1.3.6.1.4.1.21317.1.3.2.2.2.1.3.1.2.1';
+const BANK_VOLTS_OID   = '1.3.6.1.4.1.21317.1.3.2.2.2.1.3.1.3.1';
+const BANK_WATTS_OID   = '1.3.6.1.4.1.21317.1.3.2.2.2.1.3.1.4.1';
+const BANK_KWH_OID     = '1.3.6.1.4.1.21317.1.3.2.2.2.1.3.1.5.1';
+const BANK_MAX_AMPS_OID= '1.3.6.1.4.1.21317.1.3.2.2.2.1.3.1.7.1';
+
+app.get('/api/info', async (_req, res) => {
+  try {
+    const vbs = await snmpGet(readSession, [
+      SYS_NAME_OID, SYS_CONTACT_OID, SYS_LOCATION_OID, SYS_UPTIME_OID,
+      BANK_AMPS_OID, BANK_VOLTS_OID, BANK_WATTS_OID, BANK_KWH_OID, BANK_MAX_AMPS_OID,
+    ]);
+    const amps  = toNumber(vbs[4]);
+    const watts = toNumber(vbs[6]);
+    res.json({
+      host: PDU_HOST,
+      name: toName(vbs[0]),
+      contact: toName(vbs[1]),
+      location: toName(vbs[2]),
+      uptimeSec: Math.floor((vbs[3].value ?? 0) / 100),
+      bank: {
+        amps,
+        volts:  toNumber(vbs[5]),
+        watts,
+        kwh:    toNumber(vbs[7]),
+        maxAmps: vbs[8].value,
+        monthlyCostILS: Number.isFinite(watts) ? (watts * HOURS_PER_MONTH / 1000) * ELECTRICITY_RATE : null,
+      },
+    });
+  } catch (err) {
+    log('error', 'info.failed', { message: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/status', async (_req, res) => {
   try {
     const oids = [];
     for (let n = 1; n <= NUM_OUTLETS; n++) {
-      oids.push(commandOid(n), currentOid(n), voltageOid(n), powerOid(n), energyOid(n), nameOid(n));
+      oids.push(
+        commandOid(n), currentOid(n), voltageOid(n), powerOid(n), energyOid(n),
+        nameOid(n), shutdownMethodOid(n), macOid(n),
+      );
     }
-    const HALF = oids.length / 2;
-    const [first, second] = await Promise.all([
-      snmpGet(readSession, oids.slice(0, HALF)),
-      snmpGet(readSession, oids.slice(HALF)),
-    ]);
-    const vbs = first.concat(second);
+    const COLS = 8;
+    const CHUNK = 24;
+    const chunks = [];
+    for (let i = 0; i < oids.length; i += CHUNK) chunks.push(oids.slice(i, i + CHUNK));
+    const responses = await Promise.all(chunks.map(c => snmpGet(readSession, c)));
+    const vbs = responses.flat();
+
     const outlets = [];
-    const COLS = 6;
     for (let i = 0; i < NUM_OUTLETS; i++) {
       const base = i * COLS;
       const power = toNumber(vbs[base + 3]);
+      const sm = vbs[base + 6].value;
       outlets.push({
         outlet: i + 1,
         name: toName(vbs[base + 5]),
@@ -159,6 +238,9 @@ app.get('/api/status', async (_req, res) => {
         power,
         energy: toNumber(vbs[base + 4]),
         monthlyCostILS: Number.isFinite(power) ? (power * HOURS_PER_MONTH / 1000) * ELECTRICITY_RATE : null,
+        shutdownMethod: SHUTDOWN_METHODS[sm] || `unknown(${sm})`,
+        mac: toName(vbs[base + 7]),
+        locked: lockedOutlets.has(i + 1),
       });
     }
     res.json({ host: PDU_HOST, rateILSPerKWh: ELECTRICITY_RATE, outlets });
@@ -167,6 +249,35 @@ app.get('/api/status', async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+const confirmationOid = n => `${BASE}.10.1.3.${n}`;
+const CONFIRMATION_LOCKED = 2;
+const CONFIRMATION_UNLOCKED = 1;
+const lockedOutlets = new Set();
+
+async function loadLockedOutlets() {
+  try {
+    const oids = [];
+    for (let n = 1; n <= NUM_OUTLETS; n++) oids.push(confirmationOid(n));
+    const vbs = await snmpGet(readSession, oids);
+    lockedOutlets.clear();
+    for (let i = 0; i < NUM_OUTLETS; i++) {
+      if (vbs[i].value === CONFIRMATION_LOCKED) lockedOutlets.add(i + 1);
+    }
+    log('info', 'lock.loaded', { locked: [...lockedOutlets] });
+  } catch (err) {
+    log('warn', 'lock.load.failed', { message: err.message });
+  }
+}
+
+function rejectIfLocked(req, res, next) {
+  const n = Number.parseInt(req.params.n, 10);
+  if (lockedOutlets.has(n)) {
+    log('warn', 'outlet.locked.rejected', { outlet: n, path: req.path, ip: req.ip });
+    return res.status(409).json({ error: 'outlet is locked' });
+  }
+  next();
+}
 
 const HEALTH_TTL_MS = 5000;
 const healthCache = new Map();
@@ -225,7 +336,71 @@ app.get('/health/outlet/:n', async (req, res) => {
   }
 });
 
-app.put('/api/outlet/:n/name', async (req, res) => {
+const MAC_RE = /^[0-9A-Fa-f]{12}$/;
+const SHUTDOWN_METHOD_TO_INT = {
+  'kill-the-power': 1,
+  'wake-on-lan':    2,
+  'after-ac-back':  3,
+};
+
+app.put('/api/outlet/:n/lock', async (req, res) => {
+  const n = Number.parseInt(req.params.n, 10);
+  const want = Boolean(req.body?.locked);
+  if (!Number.isInteger(n) || n < 1 || n > NUM_OUTLETS) {
+    return res.status(400).json({ error: 'invalid outlet' });
+  }
+  const value = want ? CONFIRMATION_LOCKED : CONFIRMATION_UNLOCKED;
+  try {
+    await snmpSet(writeSession, confirmationOid(n), value);
+    if (want) lockedOutlets.add(n); else lockedOutlets.delete(n);
+    log('info', 'outlet.lock', { outlet: n, locked: want, ip: req.ip });
+    res.json({ ok: true, outlet: n, locked: want });
+  } catch (err) {
+    log('error', 'outlet.lock.failed', { outlet: n, locked: want, message: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/outlet/:n/mac', rejectIfLocked, async (req, res) => {
+  const n = Number.parseInt(req.params.n, 10);
+  const raw = typeof req.body?.mac === 'string' ? req.body.mac.replace(/[\s:.\-]/g, '').toUpperCase() : '';
+  if (!Number.isInteger(n) || n < 1 || n > NUM_OUTLETS) {
+    return res.status(400).json({ error: 'invalid outlet' });
+  }
+  if (!MAC_RE.test(raw)) {
+    return res.status(400).json({ error: 'mac must be 12 hex chars (separators allowed)' });
+  }
+  try {
+    await snmpSet(writeSession, macOid(n), Buffer.from(raw, 'utf8'), snmp.ObjectType.OctetString);
+    log('info', 'outlet.mac', { outlet: n, mac: raw, ip: req.ip });
+    res.json({ ok: true, outlet: n, mac: raw });
+  } catch (err) {
+    log('error', 'outlet.mac.failed', { outlet: n, mac: raw, message: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/outlet/:n/shutdown-method', rejectIfLocked, async (req, res) => {
+  const n = Number.parseInt(req.params.n, 10);
+  const method = req.body?.method;
+  const value = SHUTDOWN_METHOD_TO_INT[method];
+  if (!Number.isInteger(n) || n < 1 || n > NUM_OUTLETS) {
+    return res.status(400).json({ error: 'invalid outlet' });
+  }
+  if (!value) {
+    return res.status(400).json({ error: `method must be one of ${Object.keys(SHUTDOWN_METHOD_TO_INT).join(', ')}` });
+  }
+  try {
+    await snmpSet(writeSession, shutdownMethodOid(n), value);
+    log('info', 'outlet.shutdown-method', { outlet: n, method, ip: req.ip });
+    res.json({ ok: true, outlet: n, method });
+  } catch (err) {
+    log('error', 'outlet.shutdown-method.failed', { outlet: n, method, message: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/outlet/:n/name', rejectIfLocked, async (req, res) => {
   const n = Number.parseInt(req.params.n, 10);
   const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
   if (!Number.isInteger(n) || n < 1 || n > NUM_OUTLETS) {
@@ -247,7 +422,7 @@ app.put('/api/outlet/:n/name', async (req, res) => {
   }
 });
 
-app.post('/api/outlet/:n/:action', async (req, res) => {
+app.post('/api/outlet/:n/:action', rejectIfLocked, async (req, res) => {
   const n = Number.parseInt(req.params.n, 10);
   const value = ACTION_VALUES[req.params.action];
   if (!Number.isInteger(n) || n < 1 || n > NUM_OUTLETS) {
@@ -284,6 +459,8 @@ async function main() {
     });
     process.exit(1);
   }
+
+  await loadLockedOutlets();
 
   server = app.listen(PORT, () => {
     log('info', 'server.start', { port: PORT, auth: AUTH_ENABLED, logLevel: Object.keys(LOG_LEVELS)[LOG_LEVEL] });

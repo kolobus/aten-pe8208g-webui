@@ -27,19 +27,25 @@
 </head>
 <body>
   <header>
-    <h1>ATEN PE8208G</h1>
+    <h1>PDU Controller</h1>
     <div id="meta"></div>
   </header>
 
   <section id="pdu">
     <div class="chassis">
       <div class="chassis-header">
-        <span class="brand">ATEN</span>
-        <span class="model">PE8208G · <span id="host">—</span></span>
+        <span class="brand" id="device-brand"></span>
+        <div class="device-id" id="device-id"></div>
         <span class="power-led"></span>
       </div>
       <div class="outlets" id="outlets"></div>
     </div>
+  </section>
+
+  <section id="stats" aria-label="Device stats">
+    <span id="stat-uptime">—</span>
+    <span class="stat-sep">·</span>
+    <span id="stat-bank">—</span>
   </section>
 
   <section id="telemetry" aria-live="polite">
@@ -60,6 +66,32 @@
       <div class="confirm-actions">
         <button type="button" class="toggle" data-role="cancel">CANCEL</button>
         <button type="submit" class="toggle danger" data-role="ok">PROCEED</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="mode-dialog" aria-labelledby="mode-title">
+    <div class="mode-form">
+      <h2 id="mode-title">Shutdown mode</h2>
+      <p id="mode-msg"></p>
+      <div class="mode-options" id="mode-options"></div>
+      <div class="confirm-actions">
+        <button type="button" class="toggle" data-role="cancel">CANCEL</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="text-dialog" aria-labelledby="text-title">
+    <form id="text-form" method="dialog">
+      <h2 id="text-title">Edit</h2>
+      <p id="text-msg"></p>
+      <label>
+        <span id="text-label">Value</span>
+        <input type="text" name="value" autocomplete="off" required>
+      </label>
+      <div class="confirm-actions">
+        <button type="button" class="toggle" data-role="cancel">CANCEL</button>
+        <button type="submit" class="toggle">SAVE</button>
       </div>
     </form>
   </dialog>
@@ -105,6 +137,18 @@
         <dd>Instantaneous power consumption. Roughly V × A with power-factor correction. What the load costs you per hour ÷ 1000.</dd>
         <dt>₪/mo</dt>
         <dd>Projected monthly spend if the current W stays constant: <code>W × 730 / 1000 × rate</code>. Rate comes from <code>ELECTRICITY_RATE_ILS_PER_KWH</code> (default 0.61).</dd>
+      </dl>
+    </div>
+
+    <div class="legend-group">
+      <h3>Shutdown modes</h3>
+      <dl>
+        <dt>KILL</dt>
+        <dd><code>kill-the-power</code> — default. Off cuts power immediately; on restores it immediately.</dd>
+        <dt>WOL</dt>
+        <dd><code>wake-on-lan</code> — on sends a Wake-on-LAN magic packet to the outlet's MAC; off asks ATEN's Safe-Shutdown agent on the host to shut down cleanly first. Useless unless that agent is installed on the connected machine.</dd>
+        <dt>AC-BACK</dt>
+        <dd><code>after-ac-back</code> — niche. Off command does <strong>not</strong> cut power immediately; it defers the shutdown until the next AC power event. <strong>This is not the "restore previous state on power loss" setting</strong> — that one lives in the PDU's firmware Power Recovery option, configurable only via the web UI.</dd>
       </dl>
     </div>
 
