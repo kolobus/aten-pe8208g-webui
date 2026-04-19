@@ -381,9 +381,36 @@ button.toggle.danger:hover { border-color: var(--fault); color: var(--fault); }
     gap: 6px;
   }
 
-  .chassis { padding: 12px 12px 16px; }
+  .chassis { padding: 12px 10px 14px; }
   .chassis-header { gap: 10px; font-size: 10px; }
   .brand { padding: 2px 6px; letter-spacing: 2px; }
+
+  .outlets {
+    grid-template-columns: repeat(4, 1fr);
+    overflow-x: visible;
+    gap: 6px;
+    padding-bottom: 0;
+  }
+  .outlet {
+    padding: 8px 4px;
+    gap: 5px;
+  }
+  .outlet .readouts { display: none; }
+  .outlet-num { font-size: 9px; letter-spacing: 1px; }
+  .outlet-name { font-size: 9px; letter-spacing: 0; padding: 1px 2px; }
+
+  .socket.c13 { width: 34px; height: 32px; }
+  .socket.c19 { width: 42px; height: 32px; }
+  .socket.c13 .pin.l, .socket.c13 .pin.r { width: 6px; height: 2px; top: 44%; }
+  .socket.c13 .pin.l { left: 20%; }
+  .socket.c13 .pin.r { right: 20%; }
+  .socket.c13 .pin.g { width: 6px; height: 2px; bottom: 22%; }
+  .socket.c19 .pin.l, .socket.c19 .pin.r { width: 8px; height: 3px; top: 40%; }
+  .socket.c19 .pin.l { left: 18%; }
+  .socket.c19 .pin.r { right: 18%; }
+  .socket.c19 .pin.g { width: 8px; height: 3px; bottom: 22%; }
+
+  .led { width: 6px; height: 6px; }
 
   #telemetry th, #telemetry td { padding: 8px 10px; }
   .name-input { width: 110px; font-size: 12px; }
