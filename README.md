@@ -1,5 +1,7 @@
 # PDU Controller
 
+![PDU Controller screenshot](docs/screenshot.png)
+
 Node.js web app for monitoring and controlling an **ATEN PE8208G** 8-outlet rack PDU over SNMP.
 
 - Live telemetry per outlet (V, A, W, projected ₪/mo), polled every 10 s
