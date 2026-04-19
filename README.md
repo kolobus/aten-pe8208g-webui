@@ -38,6 +38,9 @@ All runtime config comes from environment variables (or `.env` file in the proje
 | `PDU_SNMP_V3_AUTH_PASS`    | yes      | SNMPv3 auth passphrase |
 | `PDU_SNMP_V3_PRIV_PASS`    | yes      | SNMPv3 priv passphrase |
 | `ELECTRICITY_RATE_ILS_PER_KWH` | no   | Used to project per-outlet monthly cost. Default: 0.61 |
+| `BASIC_AUTH_USER`          | no       | Enable HTTP Basic auth on `/api/*` and `/health/*` when both user and pass are set |
+| `BASIC_AUTH_PASS`          | no       | See above — both must be defined for auth to activate |
+| `LOG_LEVEL`                | no       | `error` / `warn` / `info` / `debug`. Default: `info` |
 | `PORT`                     | no       | HTTP listen port. Default: 3000 |
 
 SNMPv3 auth/priv protocols are hardcoded to MD5 + AES (the only combination the PE8208G responds to).
@@ -57,13 +60,68 @@ Never commit `.env` — it is listed in `.gitignore` and `.dockerignore`.
 
 ## HTTP API
 
+### JSON endpoints (the web UI)
+
 | Method | Path                         | Purpose |
 | ------ | ---------------------------- | ------- |
-| GET    | `/api/status`                | All 8 outlets: state + voltage/current/power/energy + name |
+| GET    | `/api/status`                | All 8 outlets: state + voltage/current/power/energy + monthlyCostILS + name. Top-level also includes `rateILSPerKWh`. |
 | POST   | `/api/outlet/:n/:action`     | `action` ∈ `on` / `off` / `reboot`, `n` is 1–8 |
 | PUT    | `/api/outlet/:n/name`        | Body `{"name":"..."}`, 1–16 chars, `[A-Za-z0-9_ ]` only |
 
-All endpoints return JSON. Errors come back as `{"error":"..."}` with appropriate status code.
+JSON responses. Errors come back as `{"error":"..."}` with an appropriate status code.
+
+### Health endpoints (for monitoring)
+
+Plain-text endpoints intended for probe tools (Uptime Kuma, Prometheus blackbox exporter, curl in a cron, etc.). Status code reflects up/down so the simplest HTTP monitor type works out of the box.
+
+| Method | Path                         | Purpose |
+| ------ | ---------------------------- | ------- |
+| GET    | `/live`                      | Process liveness only. Always `200 OK`. Unauth. Used by the Docker HEALTHCHECK. |
+| GET    | `/health`                    | App + PDU reachability. `200 OK` if the app can talk to the PDU; `503 DOWN <reason>` otherwise. |
+| GET    | `/health/outlet/:n`          | Per-outlet *appliance* liveness based on actual power draw (see below). |
+
+When `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` are set, everything except `/live` and the static assets requires Basic auth. `/live` stays unauth so container orchestrators can probe without secrets. External monitors (Uptime Kuma, etc.) should send `Authorization: Basic <base64>` headers — all of them support this per-monitor.
+
+#### Outlet liveness semantics
+
+Energized ≠ alive. A crashed server still has 230 V at the outlet but drops to 0 W. The endpoint compares the *instantaneous draw* against a threshold.
+
+Query parameters (both optional, combined with AND if both set):
+
+| Param   | Unit  | Default  | Meaning |
+| ------- | ----- | -------- | ------- |
+| `min`   | watts | `1`      | Minimum instantaneous power. Set to `0` to disable the watts check. |
+| `min_a` | amps  | `0`      | Minimum instantaneous current. Set this to use an amps threshold. When only `min_a` is provided, the watts default is suppressed. |
+
+Responses (all `text/plain`):
+
+| HTTP | Body                                          | Meaning |
+| ---- | --------------------------------------------- | ------- |
+| 200  | `LIVE <W>W <A>A min=<x>W min_a=<y>A`          | Appliance is drawing above threshold. |
+| 503  | `DOWN <W>W <A>A min=<x>W min_a=<y>A`          | Draw is below threshold (appliance off, crashed, or outlet de-energized). |
+| 400  | `INVALID` / `INVALID threshold`               | Bad outlet number or negative/NaN threshold. |
+| 502  | `ERROR <reason>`                              | SNMP error talking to the PDU. |
+
+#### Picking a threshold
+
+1 W is permissive — any real load. Tighten per appliance so "running slow / stuck" shows as down too:
+
+| Appliance             | Healthy draw | Suggested URL |
+| --------------------- | ------------ | ------------- |
+| LED bulb              | ~5 W         | `/health/outlet/3?min=2` |
+| Switch / router       | 8–15 W       | `/health/outlet/3?min=5` |
+| Small server / NUC    | 30–80 W      | `/health/outlet/3?min=25` |
+| Workstation           | 80+ W        | `/health/outlet/3?min=40` |
+| Current-sensitive     | any          | `/health/outlet/3?min_a=0.1` |
+
+#### Uptime Kuma setup
+
+- **Monitor type:** HTTP(s)
+- **URL:** `https://your-host/health/outlet/<N>?min=<W>`
+- **Accepted status codes:** `200-299`
+- **Interval:** 30–60 s is fine. Each probe triggers two SNMP GetRequests.
+
+No keyword matching needed — status codes do the work. If you prefer keyword mode, match `LIVE` in the body.
 
 ## CI/CD
 
@@ -75,6 +133,20 @@ All endpoints return JSON. Errors come back as `{"error":"..."}` with appropriat
 - Uses `--cache=true --cache-repo=$CI_REGISTRY_IMAGE/cache` for fast incremental builds
 
 No additional GitLab secrets needed — `CI_REGISTRY_USER` / `CI_REGISTRY_PASSWORD` are injected automatically.
+
+## Mobile / home-screen install
+
+The page is a minimal PWA: `manifest.webmanifest`, theme colors, Apple meta tags, and a full icon set. On iOS, Share → Add to Home Screen launches the app standalone (no Safari chrome, status-bar blended with the app background, safe-area insets respected so the notch doesn't clip content).
+
+Icons are generated by `scripts/gen-icons.mjs` from a single Node script using the `canvas` package. The dep is installed on demand — it is not in `package.json` and does not ship with the runtime image.
+
+```bash
+npm install canvas --no-save
+node scripts/gen-icons.mjs   # writes PNGs into public/
+npm uninstall canvas --no-save
+```
+
+Regenerate after tweaking the icon design if the hard-coded SVG path values in the script are changed.
 
 ## Graceful shutdown
 
@@ -161,10 +233,19 @@ snmpset -v3 -l authPriv \
 ├── .dockerignore
 ├── .gitlab-ci.yml        Kaniko build & push to project registry
 ├── package.json          type: module
-├── server.js             Express + net-snmp, REST API
+├── server.js             Express + net-snmp, REST + health API
 ├── public/
-│   ├── index.html
-│   ├── style.css
-│   └── app.js            vanilla JS frontend, polls /api/status every 2 s
+│   ├── index.html        SPA shell + PWA meta tags
+│   ├── style.css         mobile-first; 4×2 chassis below 700 px
+│   ├── app.js            vanilla JS; polls /api/status every 2 s
+│   ├── manifest.webmanifest
+│   ├── icon.svg
+│   ├── apple-touch-icon.png
+│   ├── favicon-32.png
+│   ├── icon-192.png
+│   ├── icon-512.png
+│   └── og-image.png
+├── scripts/
+│   └── gen-icons.mjs     regenerate the icon set via node-canvas
 └── README.md
 ```

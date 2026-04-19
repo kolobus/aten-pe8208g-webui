@@ -1,0 +1,39 @@
+# docker compose up -d
+#
+# All runtime config is read from the .env file next to this compose file.
+# See README.md for the full env reference. At minimum you need:
+#   PDU_HOST, PDU_SNMP_READ_COMMUNITY,
+#   PDU_SNMP_V3_USER, PDU_SNMP_V3_AUTH_PASS, PDU_SNMP_V3_PRIV_PASS
+# Optional but recommended for public exposure:
+#   BASIC_AUTH_USER, BASIC_AUTH_PASS
+
+services:
+  pdu-controller:
+    # Pick one: build locally, or pull the image produced by GitLab CI.
+    build: .
+    # image: registry.gitlab.com/kolobus/aten-pe8208g-webui:latest
+
+    container_name: pdu-controller
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "3000:3000"
+
+    # Dockerfile already defines HEALTHCHECK against /live.
+    # Uncomment to override the interval or test command:
+    # healthcheck:
+    #   interval: 1m
+    #   timeout: 5s
+    #   retries: 3
+
+    # Hardening — image writes nothing to disk at runtime.
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+    # Cap resources if you want:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.25"
+    #       memory: 128M

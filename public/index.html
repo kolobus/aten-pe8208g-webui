@@ -53,6 +53,33 @@
     </table>
   </section>
 
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+    <form id="confirm-form" method="dialog">
+      <h2 id="confirm-title">Confirm</h2>
+      <p id="confirm-msg"></p>
+      <div class="confirm-actions">
+        <button type="button" class="toggle" data-role="cancel">CANCEL</button>
+        <button type="submit" class="toggle danger" data-role="ok">PROCEED</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="login-dialog" aria-labelledby="login-title">
+    <form id="login-form" method="dialog">
+      <h2 id="login-title">Sign in</h2>
+      <p id="login-msg">Authentication required.</p>
+      <label>
+        <span>Username</span>
+        <input type="text" name="username" autocomplete="username" required>
+      </label>
+      <label>
+        <span>Password</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit" class="toggle">SIGN IN</button>
+    </form>
+  </dialog>
+
   <section id="legend">
     <h2>Legend</h2>
 

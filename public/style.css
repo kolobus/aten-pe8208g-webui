@@ -305,6 +305,13 @@ button.toggle {
 button.toggle:hover { border-color: var(--accent); color: var(--accent); }
 button.toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 button.toggle.danger:hover { border-color: var(--fault); color: var(--fault); }
+button.toggle.warn:hover   { border-color: var(--pending); color: var(--pending); }
+
+.action-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
 #legend {
   max-width: 1100px;
@@ -361,6 +368,98 @@ button.toggle.danger:hover { border-color: var(--fault); color: var(--fault); }
   vertical-align: middle;
   border: 1px solid rgba(255,255,255,0.08);
 }
+#login-dialog,
+#confirm-dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid #23272f;
+  border-radius: 6px;
+  padding: 0;
+  max-width: 360px;
+  width: calc(100% - 40px);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.6);
+  font-family: inherit;
+}
+#login-dialog::backdrop,
+#confirm-dialog::backdrop {
+  background: rgba(5,6,10,0.8);
+  backdrop-filter: blur(4px);
+}
+#confirm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+}
+#confirm-form h2 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--fault);
+  font-weight: 500;
+}
+#confirm-form p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+#login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+}
+#login-form h2 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 500;
+}
+#login-msg {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+#login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+#login-form input {
+  background: #0a0c10;
+  color: var(--text);
+  border: 1px solid #3a4150;
+  border-radius: 3px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+}
+#login-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #0e1116;
+}
+#login-form button {
+  margin-top: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
+}
+
 .sw-on      { background: var(--on); }
 .sw-off     { background: var(--off); }
 .sw-pending { background: var(--pending); }

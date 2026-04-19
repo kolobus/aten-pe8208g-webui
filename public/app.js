@@ -1,8 +1,81 @@
-const POLL_MS = 2000;
+const POLL_MS = 10000;
 const outletsEl = document.getElementById('outlets');
 const tbodyEl = document.getElementById('telemetry-body');
 const metaEl = document.getElementById('meta');
 const hostEl = document.getElementById('host');
+const loginDialog = document.getElementById('login-dialog');
+const loginForm = document.getElementById('login-form');
+const loginMsg = document.getElementById('login-msg');
+const confirmDialog = document.getElementById('confirm-dialog');
+const confirmForm = document.getElementById('confirm-form');
+const confirmMsg = document.getElementById('confirm-msg');
+
+let lastOutlets = [];
+
+function outletByNum(n) {
+  return lastOutlets.find(o => o.outlet === n);
+}
+
+function confirmDestructive(message) {
+  confirmMsg.textContent = message;
+  confirmDialog.showModal();
+  return new Promise(resolve => {
+    const onSubmit = ev => { ev.preventDefault(); cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    const cancelBtn = confirmForm.querySelector('[data-role="cancel"]');
+    function cleanup() {
+      confirmForm.removeEventListener('submit', onSubmit);
+      cancelBtn.removeEventListener('click', onCancel);
+      confirmDialog.close();
+    }
+    confirmForm.addEventListener('submit', onSubmit);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
+const AUTH_KEY = 'pdu_auth';
+
+function getAuthHeader() {
+  const v = sessionStorage.getItem(AUTH_KEY);
+  return v ? { Authorization: 'Basic ' + v } : {};
+}
+
+function setAuth(user, pass) {
+  sessionStorage.setItem(AUTH_KEY, btoa(`${user}:${pass}`));
+}
+
+function clearAuth() {
+  sessionStorage.removeItem(AUTH_KEY);
+}
+
+async function apiFetch(url, init = {}) {
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...getAuthHeader(), ...(init.headers || {}) },
+  });
+  if (res.status === 401) {
+    clearAuth();
+    await promptLogin();
+    return apiFetch(url, init);
+  }
+  return res;
+}
+
+function promptLogin(message = 'Authentication required.') {
+  loginMsg.textContent = message;
+  if (!loginDialog.open) loginDialog.showModal();
+  return new Promise(resolve => {
+    loginForm.addEventListener('submit', function handler(ev) {
+      ev.preventDefault();
+      const fd = new FormData(loginForm);
+      setAuth(fd.get('username'), fd.get('password'));
+      loginForm.reset();
+      loginForm.removeEventListener('submit', handler);
+      loginDialog.close();
+      resolve();
+    }, { once: true });
+  });
+}
 
 function fmt(n, digits = 2) {
   return Number.isFinite(n) ? n.toFixed(digits) : '—';
@@ -51,11 +124,19 @@ function buildCard(o) {
 
 function buildRow(o) {
   const nextAction = o.state === 'on' ? 'off' : 'on';
-  const btn = el('button', {
+  const toggle = el('button', {
     cls: `toggle ${o.state === 'on' ? 'danger' : ''}`,
     text: `TURN ${nextAction.toUpperCase()}`,
   });
-  btn.addEventListener('click', () => controlOutlet(o.outlet, nextAction));
+  toggle.addEventListener('click', () => controlOutlet(o.outlet, nextAction));
+
+  const reboot = o.state === 'on'
+    ? el('button', { cls: 'toggle warn', text: 'REBOOT', title: 'Power-cycle this outlet' })
+    : null;
+  if (reboot) reboot.addEventListener('click', () => controlOutlet(o.outlet, 'reboot'));
+
+  const actionCell = el('td', { cls: 'action-cell' }, toggle);
+  if (reboot) actionCell.appendChild(reboot);
 
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
@@ -89,7 +170,7 @@ function buildRow(o) {
     el('td', { text: fmt(o.current, 2) }),
     el('td', { text: fmt(o.power, 2) }),
     el('td', { text: fmt(o.monthlyCostILS, 2) }),
-    el('td', {}, btn),
+    actionCell,
   );
 }
 
@@ -110,7 +191,7 @@ function promptRename(n, current) {
 async function renameOutlet(n, name) {
   metaEl.textContent = `renaming outlet ${n}…`;
   try {
-    const res = await fetch(`/api/outlet/${n}/name`, {
+    const res = await apiFetch(`/api/outlet/${n}/name`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
@@ -126,6 +207,7 @@ async function renameOutlet(n, name) {
 
 function render(data) {
   hostEl.textContent = data.host || '';
+  lastOutlets = data.outlets;
   const active = document.activeElement;
   if (active && active.classList?.contains('name-input')) return;
   outletsEl.replaceChildren(...data.outlets.map(buildCard));
@@ -134,7 +216,7 @@ function render(data) {
 
 async function fetchStatus() {
   try {
-    const res = await fetch('/api/status');
+    const res = await apiFetch('/api/status');
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     render(data);
@@ -147,9 +229,17 @@ async function fetchStatus() {
 }
 
 async function controlOutlet(n, action) {
+  const o = outletByNum(n);
+  if ((action === 'off' || action === 'reboot') && o?.state === 'on') {
+    const label = o.name ? `"${o.name}"` : `outlet ${n}`;
+    const draw = Number.isFinite(o.power) ? ` drawing ${o.power.toFixed(1)} W` : '';
+    const verb = action === 'off' ? 'Turn OFF' : 'REBOOT';
+    const ok = await confirmDestructive(`${verb} ${label}${draw}?`);
+    if (!ok) return;
+  }
   metaEl.textContent = `outlet ${n} → ${action}…`;
   try {
-    const res = await fetch(`/api/outlet/${n}/${action}`, { method: 'POST' });
+    const res = await apiFetch(`/api/outlet/${n}/${action}`, { method: 'POST' });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     setTimeout(fetchStatus, 600);
