@@ -1,258 +1,209 @@
 # PDU Controller
 
-A Node.js web app for monitoring and controlling an ATEN PE8208G 8-outlet rack PDU over SNMP.
+Node.js web app for monitoring and controlling an **ATEN PE8208G** 8-outlet rack PDU over SNMP.
 
-- Live telemetry (voltage, current, power, energy) per outlet, polled every 2 s
-- Click-to-toggle outlet control, batch on/off/reboot, outlet renaming
-- Visual rendering of the 1U chassis with IEC 60320 C13/C19 sockets and status LEDs
-- Small: Express + vanilla HTML/CSS/JS, no frontend framework
+- Live telemetry per outlet (V, A, W, projected ₪/mo), polled every 10 s
+- Outlet on / off / reboot with confirmation modal
+- Per-outlet **lock** that disables every action (persisted on the device, so it survives restarts)
+- Inline-edit device name, contact, location, plus per-outlet name and MAC
+- Shutdown mode picker (KILL / WOL / AC-BACK) per outlet
+- Liveness health endpoints designed for Uptime Kuma
+- Bearer-token auth (optional) with custom login dialog
+- PWA: install to iOS home screen, themed icons, safe-area aware
+- Mobile layout: 4×2 chassis tiles + stacked-card telemetry rows
+- Express + vanilla HTML/CSS/JS, no frontend framework
 
-## Quick start (Docker)
+## Quick start
 
 ```bash
+# Docker Compose (env from .env in the same dir)
+docker compose up -d
+
+# Plain Docker
 docker build -t pdu-controller .
 docker run --rm -p 3000:3000 --env-file .env pdu-controller
-```
 
-Open http://localhost:3000.
-
-## Quick start (local Node.js)
-
-Requires Node.js 22+.
-
-```bash
+# Local Node (Node 22+)
 npm ci
 npm start
 ```
 
+Open <http://localhost:3000>.
+
 ## Configuration
 
-All runtime config comes from environment variables (or `.env` file in the project root).
+| Variable                       | Required | Purpose |
+| ------------------------------ | -------- | ------- |
+| `PDU_HOST`                     | yes      | PDU IP or hostname |
+| `PDU_SNMP_READ_COMMUNITY`      | yes      | SNMPv2c community for reads |
+| `PDU_SNMP_V3_USER`             | yes      | SNMPv3 user for writes |
+| `PDU_SNMP_V3_AUTH_PASS`        | yes      | SNMPv3 auth passphrase |
+| `PDU_SNMP_V3_PRIV_PASS`        | yes      | SNMPv3 priv passphrase |
+| `AUTH_TOKEN`                   | no       | Bearer token; when set, all `/api/*` and `/health/*` require `Authorization: Bearer <token>` |
+| `ELECTRICITY_RATE_ILS_PER_KWH` | no       | Rate used for ₪/mo projection. Default `0.61` |
+| `LOG_LEVEL`                    | no       | `error` / `warn` / `info` / `debug`. Default `info` |
+| `PORT`                         | no       | HTTP listen port. Default `3000` |
 
-| Variable                   | Required | Purpose |
-| -------------------------- | -------- | ------- |
-| `PDU_HOST`                 | yes      | PDU IP or hostname |
-| `PDU_SNMP_READ_COMMUNITY`  | yes      | SNMPv2c community for telemetry reads |
-| `PDU_SNMP_WRITE_COMMUNITY` | no       | Unused at runtime (see SNMP notes below) |
-| `PDU_SNMP_V3_USER`         | yes      | SNMPv3 user for writes |
-| `PDU_SNMP_V3_AUTH_PASS`    | yes      | SNMPv3 auth passphrase |
-| `PDU_SNMP_V3_PRIV_PASS`    | yes      | SNMPv3 priv passphrase |
-| `ELECTRICITY_RATE_ILS_PER_KWH` | no   | Used to project per-outlet monthly cost. Default: 0.61 |
-| `AUTH_TOKEN`               | no       | Bearer token. When set, all `/api/*` and `/health/*` calls require `Authorization: Bearer <token>`. |
-| `LOG_LEVEL`                | no       | `error` / `warn` / `info` / `debug`. Default: `info` |
-| `PORT`                     | no       | HTTP listen port. Default: 3000 |
+SNMPv3 protocols are hardcoded to **MD5 + AES** — the only combination the PE8208G responds to.
 
-SNMPv3 auth/priv protocols are hardcoded to MD5 + AES (the only combination the PE8208G responds to).
-
-`.env.example`:
-
-```
-PDU_HOST=10.42.2.28
-PDU_SNMP_READ_COMMUNITY=public
-PDU_SNMP_WRITE_COMMUNITY=private
-PDU_SNMP_V3_USER=kolo
-PDU_SNMP_V3_AUTH_PASS=changeme
-PDU_SNMP_V3_PRIV_PASS=changeme
-```
-
-Never commit `.env` — it is listed in `.gitignore` and `.dockerignore`.
+`.env` is gitignored and dockerignored. Generate a strong token with `openssl rand -hex 32`.
 
 ## HTTP API
 
-### JSON endpoints (the web UI)
+### JSON (the web UI)
 
-| Method | Path                         | Purpose |
-| ------ | ---------------------------- | ------- |
-| GET    | `/api/status`                | All 8 outlets: state + voltage/current/power/energy + monthlyCostILS + name. Top-level also includes `rateILSPerKWh`. |
-| POST   | `/api/outlet/:n/:action`     | `action` ∈ `on` / `off` / `reboot`, `n` is 1–8 |
-| PUT    | `/api/outlet/:n/name`        | Body `{"name":"..."}`, 1–16 chars, `[A-Za-z0-9_ ]` only |
+| Method | Path                                     | Purpose |
+| ------ | ---------------------------------------- | ------- |
+| GET    | `/api/info`                              | Device descriptive fields, uptime, bank totals. One-shot at page load. |
+| GET    | `/api/status`                            | All 8 outlets: state, V/A/W/kWh, name, MAC, shutdown method, locked flag |
+| POST   | `/api/outlet/:n/:action`                 | `action` ∈ `on` / `off` / `reboot` |
+| PUT    | `/api/outlet/:n/name`                    | `{"name":"..."}` — 1–16 chars, `[A-Za-z0-9_ ]` |
+| PUT    | `/api/outlet/:n/mac`                     | `{"mac":"AA:BB:CC:DD:EE:FF"}` — 12 hex chars, separators optional |
+| PUT    | `/api/outlet/:n/shutdown-method`         | `{"method":"kill-the-power"\|"wake-on-lan"\|"after-ac-back"}` |
+| PUT    | `/api/outlet/:n/lock`                    | `{"locked":true\|false}` — locked outlets reject all other writes with `409` |
+| PUT    | `/api/device/:field`                     | `field` ∈ `name` / `contact` / `location`; `{"value":"..."}` |
 
-JSON responses. Errors come back as `{"error":"..."}` with an appropriate status code.
+Errors: `{"error":"..."}` with HTTP 4xx/5xx.
 
-### Health endpoints (for monitoring)
+### Health (for monitoring)
 
-Plain-text endpoints intended for probe tools (Uptime Kuma, Prometheus blackbox exporter, curl in a cron, etc.). Status code reflects up/down so the simplest HTTP monitor type works out of the box.
+Plain-text, status-code-driven. No keyword matching needed.
 
-| Method | Path                         | Purpose |
-| ------ | ---------------------------- | ------- |
-| GET    | `/live`                      | Process liveness only. Always `200 OK`. Unauth. Used by the Docker HEALTHCHECK. |
-| GET    | `/health`                    | App + PDU reachability. `200 OK` if the app can talk to the PDU; `503 DOWN <reason>` otherwise. |
-| GET    | `/health/outlet/:n`          | Per-outlet *appliance* liveness based on actual power draw (see below). |
+| Method | Path                  | Purpose |
+| ------ | --------------------- | ------- |
+| GET    | `/live`               | Always `200 OK`. **Unauthenticated**, used by Docker `HEALTHCHECK`. |
+| GET    | `/health`             | App + PDU reachability. `200 OK` or `503 DOWN`. 5 s cached. |
+| GET    | `/health/outlet/:n`   | Per-outlet liveness based on actual draw. 5 s cached per query. |
 
-When `AUTH_TOKEN` is set, everything except `/live` and the static assets requires the bearer token. `/live` stays unauth so container orchestrators can probe without secrets.
+`/health/outlet/:n` query params (combined with AND if both set):
 
-**External monitors (Uptime Kuma etc.)** — add a custom header to each monitor:
+| Param   | Unit  | Default | Meaning |
+| ------- | ----- | ------- | ------- |
+| `min`   | watts | `1`     | Minimum power. Set `0` to disable. |
+| `min_a` | amps  | `0`     | Minimum current. When only `min_a` is given, the watts default is suppressed. |
 
-| Header name       | Value                    |
-| ----------------- | ------------------------ |
-| `Authorization`   | `Bearer <your-token>`    |
-
-Uptime Kuma: *Edit monitor → HTTP Options → HTTP Headers → `{"Authorization":"Bearer xxxxxxxx"}`*.
-
-#### Outlet liveness semantics
-
-Energized ≠ alive. A crashed server still has 230 V at the outlet but drops to 0 W. The endpoint compares the *instantaneous draw* against a threshold.
-
-Query parameters (both optional, combined with AND if both set):
-
-| Param   | Unit  | Default  | Meaning |
-| ------- | ----- | -------- | ------- |
-| `min`   | watts | `1`      | Minimum instantaneous power. Set to `0` to disable the watts check. |
-| `min_a` | amps  | `0`      | Minimum instantaneous current. Set this to use an amps threshold. When only `min_a` is provided, the watts default is suppressed. |
-
-Responses (all `text/plain`):
-
-| HTTP | Body                                          | Meaning |
-| ---- | --------------------------------------------- | ------- |
-| 200  | `LIVE <W>W <A>A min=<x>W min_a=<y>A`          | Appliance is drawing above threshold. |
-| 503  | `DOWN <W>W <A>A min=<x>W min_a=<y>A`          | Draw is below threshold (appliance off, crashed, or outlet de-energized). |
-| 400  | `INVALID` / `INVALID threshold`               | Bad outlet number or negative/NaN threshold. |
-| 502  | `ERROR <reason>`                              | SNMP error talking to the PDU. |
-
-#### Picking a threshold
-
-1 W is permissive — any real load. Tighten per appliance so "running slow / stuck" shows as down too:
-
-| Appliance             | Healthy draw | Suggested URL |
-| --------------------- | ------------ | ------------- |
-| LED bulb              | ~5 W         | `/health/outlet/3?min=2` |
-| Switch / router       | 8–15 W       | `/health/outlet/3?min=5` |
-| Small server / NUC    | 30–80 W      | `/health/outlet/3?min=25` |
-| Workstation           | 80+ W        | `/health/outlet/3?min=40` |
-| Current-sensitive     | any          | `/health/outlet/3?min_a=0.1` |
+`200 LIVE … min=…` if drawing above the threshold, `503 DOWN …` otherwise. Energized ≠ alive — a crashed server still has 230 V at the outlet but drops to 0 W; the threshold check catches that.
 
 #### Uptime Kuma setup
 
-- **Monitor type:** HTTP(s)
-- **URL:** `https://your-host/health/outlet/<N>?min=<W>`
-- **Accepted status codes:** `200-299`
-- **Interval:** 30–60 s is fine. Each probe triggers two SNMP GetRequests.
+- HTTP(s) monitor → URL: `https://your-host/health/outlet/<N>?min=<W>`
+- Accepted status codes: `200-299`
+- If `AUTH_TOKEN` is set, add header `Authorization: Bearer <token>` in *HTTP Options → HTTP Headers*.
+- Interval 30–60 s. The 5 s health cache means duplicate probes coalesce.
 
-No keyword matching needed — status codes do the work. If you prefer keyword mode, match `LIVE` in the body.
+### Suggested per-appliance threshold
 
-## CI/CD
+| Appliance              | Healthy draw | Suggested URL                 |
+| ---------------------- | ------------ | ----------------------------- |
+| LED bulb               | ~5 W         | `…/health/outlet/3?min=2`     |
+| Switch / router        | 8–15 W       | `…/health/outlet/3?min=5`     |
+| Small server / NUC     | 30–80 W      | `…/health/outlet/3?min=25`    |
+| Workstation            | 80+ W        | `…/health/outlet/3?min=40`    |
+| Current-sensitive load | any          | `…/health/outlet/3?min_a=0.1` |
 
-`.gitlab-ci.yml` builds and pushes a container image to the project's GitLab registry using Kaniko. It runs on every branch push and tag:
+## Outlet lock
 
-- Tagged images: `<SHORT_SHA>` and `<REF_SLUG>` always
-- Tagged images: `<GIT_TAG>` and `latest` on tag pushes
-- Tagged images: `latest` on default-branch pushes
-- Uses `--cache=true --cache-repo=$CI_REGISTRY_IMAGE/cache` for fast incremental builds
+Lock state is stored **on the device itself** by repurposing the `outletConfirmation` MIB column (which only affects the PDU's own web-UI prompts and not SNMP writes). Value `1` = unlocked, `2` = locked.
 
-No additional GitLab secrets needed — `CI_REGISTRY_USER` / `CI_REGISTRY_PASSWORD` are injected automatically.
+When locked:
+- Every mutating endpoint (`on`/`off`/`reboot`/`name`/`mac`/`shutdown-method`) returns `409 Conflict`
+- The frontend hides every action button and edit affordance for that outlet
+- The lock toggle button itself stays available so the user can unlock
 
 ## Mobile / home-screen install
 
-The page is a minimal PWA: `manifest.webmanifest`, theme colors, Apple meta tags, and a full icon set. On iOS, Share → Add to Home Screen launches the app standalone (no Safari chrome, status-bar blended with the app background, safe-area insets respected so the notch doesn't clip content).
+Manifest, theme colors, Apple meta tags, and themed icons are included. iOS Share → Add to Home Screen launches standalone with safe-area insets respected.
 
-Icons are generated by `scripts/gen-icons.mjs` from a single Node script using the `canvas` package. The dep is installed on demand — it is not in `package.json` and does not ship with the runtime image.
+Icons live in `public/`. Regenerate with the on-demand `canvas` dep (not in `package.json`):
 
 ```bash
 npm install canvas --no-save
-node scripts/gen-icons.mjs   # writes PNGs into public/
+node scripts/gen-icons.mjs
 npm uninstall canvas --no-save
 ```
 
-Regenerate after tweaking the icon design if the hard-coded SVG path values in the script are changed.
+## CI/CD
 
-## Graceful shutdown
+Two pipelines, pick what suits — they don't conflict.
 
-The server handles SIGINT and SIGTERM: it stops accepting new connections, drains in-flight HTTP requests, closes the SNMP sessions, and exits. There is a 5-second force-exit fallback. Docker and Kubernetes will terminate cleanly on stop/rolling update.
+- **`.gitlab-ci.yml`** — Kaniko in GitLab CI, pushes to the project registry. Tags by SHA / branch slug / git tag, plus `latest` on default branch or tag. Layer cache via `--cache-repo`.
+- **`.github/workflows/build.yml`** — official `docker/*` actions in GitHub Actions, multi-arch (`linux/amd64` + `linux/arm64`), pushes to `ghcr.io/<owner>/<repo>` using the built-in `GITHUB_TOKEN`. Same tag strategy.
+
+## Operational notes
+
+- **Graceful shutdown**: SIGINT / SIGTERM drain in-flight requests, close SNMP sessions, exit. 5 s force-exit fallback.
+- **Fail-fast startup**: if the PDU is unreachable at boot, the server logs `pdu.unreachable` and exits with code 1 — Docker restarts on its own backoff.
+- **Logging**: JSON-line via stdout. `auth.fail` (warn), every outlet mutation and every error path logged with user/IP/outlet context.
+- **CSP**: `default-src 'self'; frame-ancestors 'none'; …`
+- **Behind a reverse proxy**: `app.set('trust proxy', true)` is on, so `req.ip` shows real client IP from `X-Forwarded-For`.
 
 ## SNMP reference
 
-The sections below document the SNMP protocol specifics the app depends on. Useful if you need to talk to the device from the command line or port the controller to another language.
+Useful if you want to talk to the device directly or port the controller elsewhere.
 
-### Authentication
+### Auth profiles
 
-The PDU accepts two SNMP profiles, but they are **not** interchangeable:
-
-| Use case                    | Version | Why |
-| --------------------------- | ------- | --- |
-| Reads (status, telemetry)   | v2c with read community | Simple, no crypto overhead |
-| Writes (outlet control, rename) | v3 `authPriv` / MD5 / AES | v2c writes return `notWritable` on outlet command OIDs |
-
-The v3 user must use **MD5 auth and AES privacy**. Other combinations (SHA+AES, MD5+DES, SHA+DES) time out on the PE8208G.
+| Use                    | Version                       | Why |
+| ---------------------- | ----------------------------- | --- |
+| Reads (telemetry)      | v2c with read community       | Simple, no crypto |
+| Writes (any control)   | v3 `authPriv` / **MD5 / AES** | v2c writes return `notWritable`; only this v3 combo responds |
 
 ### OID map
 
-All outlet-specific OIDs live under the ATEN enterprise root `1.3.6.1.4.1.21317.1.3.2.2.2`. Two different indexing schemes are in play:
+All outlet-specific OIDs under the ATEN root `1.3.6.1.4.1.21317.1.3.2.2.2`.
 
-| Purpose                                     | Pattern                      | Outlet 1   | Outlet 4   |
-| ------------------------------------------- | ---------------------------- | ---------- | ---------- |
-| Outlet command (read-write scalar)          | `.2.<N+1>.0`                 | `.2.2.0`   | `.2.5.0`   |
-| Outlet telemetry (read-only table)          | `.2.1.1.<col>.<N>`           | `...2.1`   | `...2.4`   |
-| Outlet name (read-write)                    | `.2.10.1.2.<N>`              | `.2.10.1.2.1` | `.2.10.1.2.4` |
-
-Command values: `1`=off, `2`=on, `3`=pending, `4`=reboot, `5`=fault, `6`=noauth, `7`=not-support, `8`=pop.
-
-Telemetry columns:
-
-| Column | Metric | Units |
-| ------ | ------ | ----- |
-| 2      | Current | A (string) |
-| 3      | Voltage | V (string) |
-| 4      | Power | W (string) |
-| 5      | Energy | kWh (string) |
-| 6      | Power factor | integer ×100 |
+| Purpose | OID pattern | Notes |
+| --- | --- | --- |
+| Outlet command (RW scalar) | `.2.<N+1>.0` | Values `1`=off, `2`=on, `3`=pending, `4`=reboot, `5`=fault |
+| Outlet telemetry (table)   | `.2.1.1.<col>.<N>` | col 2=A, 3=V, 4=W, 5=kWh, 6=PF×100 |
+| Outlet name (RW)           | `.2.10.1.2.<N>` | 0–15 chars, `[A-Za-z0-9_ ]` |
+| Outlet confirmation (RW)   | `.2.10.1.3.<N>` | We repurpose: `1`=unlocked, `2`=locked |
+| Outlet shutdown method (RW)| `.2.10.1.6.<N>` | `1`=kill-the-power, `2`=wake-on-lan, `3`=after-ac-back |
+| Outlet MAC (RW)            | `.2.10.1.7.<N>` | 12 hex chars; for native Wake-on-LAN |
+| Device name (RW)           | `1.3.6.1.2.1.1.5.0` (sysName) | Aliased with `21317…1.2.0` — same storage, two OIDs |
+| Device contact (RW)        | `1.3.6.1.2.1.1.4.0` (sysContact) | 63-char free text |
+| Device location (RW)       | `1.3.6.1.2.1.1.6.0` (sysLocation) | 63-char free text |
 
 ### Gotchas
 
-- **`notWritable` with v2c write community** — the device rejects community-authenticated writes to outlet OIDs. Always use v3 authPriv for writes.
-- **`TooBig` on batched reads** — more than ~40 OIDs in a single `GetRequest` overflows the device's response buffer. The app splits the 48-OID fetch (6 columns × 8 outlets) into two parallel gets.
-- **Cached status table `.70.1.2.<N>`** — reports on/off state but updates lag the command OID by a few seconds. For authoritative state, read the per-outlet voltage column (drops to 0.00 V when de-energized).
-- **Outlet name charset** — device accepts only `[A-Za-z0-9_ ]`, 1–16 chars. Hyphens, periods, slashes are rejected with `BadValue`. Empty strings are also rejected.
-- **Power-on delay** — after an `on` command, the outlet reports state `3` (pending) for ~3 s before settling to `2` (on).
+- **`TooBig` on batched gets** — > ~40 OIDs in one request overflows the device. We split fetches into chunks of 24.
+- **Stale status table `…2.70.1.2.<N>`** — reports state but lags by seconds. Use the per-outlet voltage column for ground truth.
+- **Charset asymmetry** — outlet names accept `[A-Za-z0-9_ ]` only; sysContact/sysLocation accept `[A-Za-z0-9_. ]` (period yes, hyphen no); the alias `21317…1.2.0` accepts `[A-Za-z0-9_- ]` (hyphen yes, period no). All reject `:`, `/`, `,`, `@`, `+`, `=`.
+- **Power-on delay** — after `on`, state reads `3` (pending) for ~3 s before settling to `2`.
 
-### Manual SNMP examples
-
-Load `.env` into the shell first:
+### Manual examples
 
 ```bash
 set -a; . ./.env; set +a
-```
 
-Read outlet 4 telemetry:
-
-```bash
+# Read outlet 4 telemetry
 snmpget -v2c -c "$PDU_SNMP_READ_COMMUNITY" "$PDU_HOST" \
   1.3.6.1.4.1.21317.1.3.2.2.2.2.1.1.2.4 \
   1.3.6.1.4.1.21317.1.3.2.2.2.2.1.1.3.4 \
   1.3.6.1.4.1.21317.1.3.2.2.2.2.1.1.4.4
-```
 
-Turn outlet 4 off:
-
-```bash
+# Turn outlet 4 off
 snmpset -v3 -l authPriv \
   -u "$PDU_SNMP_V3_USER" \
-  -a "$PDU_SNMP_V3_AUTH_PROTO" -A "$PDU_SNMP_V3_AUTH_PASS" \
-  -x "$PDU_SNMP_V3_PRIV_PROTO" -X "$PDU_SNMP_V3_PRIV_PASS" \
-  "$PDU_HOST" \
-  1.3.6.1.4.1.21317.1.3.2.2.2.2.5.0 i 1
+  -a MD5 -A "$PDU_SNMP_V3_AUTH_PASS" \
+  -x AES -X "$PDU_SNMP_V3_PRIV_PASS" \
+  "$PDU_HOST" 1.3.6.1.4.1.21317.1.3.2.2.2.2.5.0 i 1
 ```
 
 ## Project layout
 
 ```
 .
-├── Dockerfile            multi-stage, node:22-alpine runner
-├── .dockerignore
-├── .gitlab-ci.yml        Kaniko build & push to project registry
-├── package.json          type: module
-├── server.js             Express + net-snmp, REST + health API
-├── public/
-│   ├── index.html        SPA shell + PWA meta tags
-│   ├── style.css         mobile-first; 4×2 chassis below 700 px
-│   ├── app.js            vanilla JS; polls /api/status every 2 s
-│   ├── manifest.webmanifest
-│   ├── icon.svg
-│   ├── apple-touch-icon.png
-│   ├── favicon-32.png
-│   ├── icon-192.png
-│   ├── icon-512.png
-│   └── og-image.png
-├── scripts/
-│   └── gen-icons.mjs     regenerate the icon set via node-canvas
+├── Dockerfile
+├── docker-compose.yml
+├── .gitlab-ci.yml          Kaniko → GitLab registry
+├── .github/workflows/      docker/*-actions → ghcr.io
+├── server.js               Express + net-snmp, REST + health API
+├── public/                 SPA + manifest + icons
+├── scripts/gen-icons.mjs   regenerate icons via node-canvas
 └── README.md
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
