@@ -210,3 +210,7 @@ snmpset -v3 -l authPriv \
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+Built by [Mihail Fedorov](https://fedorov.net) · [fedorov.net](https://fedorov.net)
