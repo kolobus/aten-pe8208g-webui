@@ -15,6 +15,10 @@
 
 * { box-sizing: border-box; }
 
+body:not(.ready) #pdu,
+body:not(.ready) #telemetry,
+body:not(.ready) #legend { display: none; }
+
 body {
   background: radial-gradient(1200px 600px at 50% -200px, #1a1f2b 0%, var(--bg) 70%);
   color: var(--text);
@@ -324,13 +328,33 @@ button.toggle.warn:hover   { border-color: var(--pending); color: var(--pending)
   color: var(--text);
 }
 #legend h2 {
-  margin: 0 0 16px;
+  margin: 0;
+  display: inline;
   font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--muted);
   font-weight: 500;
 }
+#legend summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  padding: 2px 0;
+  transition: color 0.15s;
+}
+#legend summary::-webkit-details-marker { display: none; }
+#legend summary::before {
+  content: '▸';
+  color: var(--muted);
+  margin-right: 8px;
+  display: inline-block;
+  transition: transform 0.15s;
+  font-size: 10px;
+}
+#legend details[open] summary::before { transform: rotate(90deg); }
+#legend summary:hover h2 { color: var(--accent); }
+#legend details[open] > *:not(summary) { margin-top: 18px; }
 .legend-group + .legend-group {
   margin-top: 20px;
   padding-top: 20px;
@@ -459,6 +483,23 @@ button.toggle.warn:hover   { border-color: var(--pending); color: var(--pending)
   padding: 8px 12px;
   font-size: 11px;
 }
+
+footer {
+  max-width: 1100px;
+  margin: 40px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid #23272f;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+footer a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+footer a:hover { color: var(--accent); }
 
 .sw-on      { background: var(--on); }
 .sw-off     { background: var(--off); }

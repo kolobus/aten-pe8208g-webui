@@ -55,6 +55,7 @@ async function apiFetch(url, init = {}) {
   });
   if (res.status === 401) {
     clearAuth();
+    document.body.classList.remove('ready');
     await promptLogin();
     return apiFetch(url, init);
   }
@@ -220,6 +221,7 @@ async function fetchStatus() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     render(data);
+    document.body.classList.add('ready');
     metaEl.textContent = `updated ${new Date().toLocaleTimeString()}`;
     metaEl.style.color = '';
   } catch (err) {
