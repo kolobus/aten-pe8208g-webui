@@ -399,7 +399,15 @@ function buildRow(o) {
     title: o.locked ? 'Unlock outlet' : 'Lock outlet — disables all controls',
   });
   lockBtn.type = 'button';
-  lockBtn.addEventListener('click', () => toggleLock(o.outlet, !o.locked));
+  lockBtn.addEventListener('click', async () => {
+    const want = !o.locked;
+    const label = o.name ? `"${o.name}"` : `outlet ${o.outlet}`;
+    const msg = want
+      ? `Lock ${label}?\n\nWhile locked, on/off/reboot/rename/MAC/mode are disabled — both in the UI and over the API. Use this to protect production loads from accidental toggling.`
+      : `Unlock ${label}?\n\nThis outlet was locked for a reason — usually to protect a critical load from accidental power cycling. An unintended off click later could mean a drive to the datacenter. Continue only if you really want to allow toggling again.`;
+    const ok = await confirmDestructive(msg);
+    if (ok) toggleLock(o.outlet, want);
+  });
 
   const actionCell = el('td', { cls: 'action-cell' });
   if (o.locked) {
