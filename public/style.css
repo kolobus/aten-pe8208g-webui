@@ -521,6 +521,7 @@ footer a:hover { color: var(--accent); }
     gap: 6px;
   }
 
+  /* ---------- chassis: replace socket images with colored tiles ---------- */
   .chassis { padding: 12px 10px 14px; }
   .chassis-header { gap: 10px; font-size: 10px; }
   .brand { padding: 2px 6px; letter-spacing: 2px; }
@@ -528,33 +529,121 @@ footer a:hover { color: var(--accent); }
   .outlets {
     grid-template-columns: repeat(4, 1fr);
     overflow-x: visible;
-    gap: 6px;
+    gap: 8px;
     padding-bottom: 0;
   }
   .outlet {
-    padding: 8px 4px;
-    gap: 5px;
+    padding: 10px 6px;
+    gap: 4px;
+    border-radius: 6px;
+    background: #0e1116;
+    border: 1px solid transparent;
+    box-shadow: none;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
   }
+  .outlet.on      { border-color: rgba(34, 197, 94, 0.45);  background: rgba(34, 197, 94, 0.08); }
+  .outlet.off     { border-color: rgba(139, 148, 163, 0.25); background: rgba(139, 148, 163, 0.05); }
+  .outlet.pending,
+  .outlet.reboot  { border-color: rgba(245, 158, 11, 0.55); background: rgba(245, 158, 11, 0.08); }
+  .outlet.fault   { border-color: rgba(239, 68, 68, 0.55);  background: rgba(239, 68, 68, 0.08); }
+
+  /* hide the realistic socket + pins on mobile; the tile itself conveys state */
+  .outlet .socket,
   .outlet .readouts { display: none; }
-  .outlet-num { font-size: 9px; letter-spacing: 1px; }
-  .outlet-name { font-size: 9px; letter-spacing: 0; padding: 1px 2px; }
 
-  .socket.c13 { width: 34px; height: 32px; }
-  .socket.c19 { width: 42px; height: 32px; }
-  .socket.c13 .pin.l, .socket.c13 .pin.r { width: 6px; height: 2px; top: 44%; }
-  .socket.c13 .pin.l { left: 20%; }
-  .socket.c13 .pin.r { right: 20%; }
-  .socket.c13 .pin.g { width: 6px; height: 2px; bottom: 22%; }
-  .socket.c19 .pin.l, .socket.c19 .pin.r { width: 8px; height: 3px; top: 40%; }
-  .socket.c19 .pin.l { left: 18%; }
-  .socket.c19 .pin.r { right: 18%; }
-  .socket.c19 .pin.g { width: 8px; height: 3px; bottom: 22%; }
+  .outlet .led {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+  }
+  .outlet-num { font-size: 9px; letter-spacing: 1px; color: var(--muted); }
+  .outlet-name {
+    font-size: 11px;
+    letter-spacing: 0;
+    color: var(--text);
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
 
-  .led { width: 6px; height: 6px; }
+  /* ---------- telemetry: row → stacked card ---------- */
+  #telemetry {
+    overflow-x: visible;
+    background: transparent;
+    border: none;
+  }
+  #telemetry table { min-width: 0; }
+  #telemetry thead { display: none; }
+  #telemetry tbody, #telemetry tr, #telemetry td { display: block; width: 100%; }
 
-  #telemetry th, #telemetry td { padding: 8px 10px; }
-  .name-input { width: 110px; font-size: 12px; }
-  button.toggle { padding: 4px 8px; }
+  #telemetry tr {
+    padding: 12px 14px 10px;
+    margin-bottom: 10px;
+    border: 1px solid #23272f;
+    border-left: 6px solid transparent;
+    border-radius: 4px;
+  }
+  #telemetry tr.row-on      { border-left-color: var(--on); }
+  #telemetry tr.row-off     { border-left-color: var(--off); }
+  #telemetry tr.row-pending,
+  #telemetry tr.row-reboot  { border-left-color: var(--pending); }
+  #telemetry tr.row-fault   { border-left-color: var(--fault); }
+  #telemetry tr[class^="row-"] td:first-child {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  #telemetry td { padding: 0; border: none; }
+  /* # outlet number */
+  #telemetry td:nth-child(1) {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-right: 8px;
+  }
+  #telemetry td:nth-child(1)::before { content: 'OUT '; }
+  /* name input */
+  #telemetry td:nth-child(2) {
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .name-input { width: auto; max-width: 200px; font-size: 13px; }
+
+  /* V / A / W / ₪ — inline metrics row */
+  #telemetry td:nth-child(3),
+  #telemetry td:nth-child(4),
+  #telemetry td:nth-child(5),
+  #telemetry td:nth-child(6) {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  #telemetry td:nth-child(3)::after { content: ' V'; }
+  #telemetry td:nth-child(4)::after { content: ' A'; }
+  #telemetry td:nth-child(5)::after { content: ' W'; }
+  #telemetry td:nth-child(6)::before { content: '₪ '; }
+  #telemetry td:nth-child(6)::after  { content: '/mo'; }
+  #telemetry td:nth-child(4)::before,
+  #telemetry td:nth-child(5)::before,
+  #telemetry td:nth-child(6)::before {
+    color: #3a4150;
+    margin: 0 6px 0 2px;
+  }
+
+  /* action buttons full-width row */
+  #telemetry td:last-child {
+    display: block;
+    margin-top: 10px;
+  }
+  .action-cell { gap: 8px; }
+  .action-cell button.toggle { flex: 1; padding: 8px; font-size: 11px; }
 
   #legend { padding: 16px; }
   #legend dl {
