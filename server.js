@@ -21,7 +21,8 @@ const {
 } = process.env;
 
 const NUM_OUTLETS = 8;
-const ELECTRICITY_RATE = Number.parseFloat(process.env.ELECTRICITY_RATE_ILS_PER_KWH ?? '0.61');
+const ELECTRICITY_RATE = Number.parseFloat(process.env.ELECTRICITY_RATE_PER_KWH ?? '0.61');
+const CURRENCY_SYMBOL = process.env.CURRENCY_SYMBOL ?? '\u20aa';
 const HOURS_PER_MONTH = 730;
 const BASE = '1.3.6.1.4.1.21317.1.3.2.2.2.2';
 const commandOid          = n => `${BASE}.${n + 1}.0`;
@@ -193,13 +194,15 @@ app.get('/api/info', async (_req, res) => {
       contact: toName(vbs[1]),
       location: toName(vbs[2]),
       uptimeSec: Math.floor((vbs[3].value ?? 0) / 100),
+      currency: CURRENCY_SYMBOL,
+      ratePerKWh: ELECTRICITY_RATE,
       bank: {
         amps,
         volts:  toNumber(vbs[5]),
         watts,
         kwh:    toNumber(vbs[7]),
         maxAmps: vbs[8].value,
-        monthlyCostILS: Number.isFinite(watts) ? (watts * HOURS_PER_MONTH / 1000) * ELECTRICITY_RATE : null,
+        monthlyCost: Number.isFinite(watts) ? (watts * HOURS_PER_MONTH / 1000) * ELECTRICITY_RATE : null,
       },
     });
   } catch (err) {
@@ -237,7 +240,7 @@ app.get('/api/status', async (_req, res) => {
         voltage: toNumber(vbs[base + 2]),
         power,
         energy: toNumber(vbs[base + 4]),
-        monthlyCostILS: Number.isFinite(power) ? (power * HOURS_PER_MONTH / 1000) * ELECTRICITY_RATE : null,
+        monthlyCost: Number.isFinite(power) ? (power * HOURS_PER_MONTH / 1000) * ELECTRICITY_RATE : null,
         shutdownMethod: SHUTDOWN_METHODS[sm] || `unknown(${sm})`,
         mac: toName(vbs[base + 7]),
         locked: lockedOutlets.has(i + 1),

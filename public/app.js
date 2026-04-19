@@ -17,6 +17,9 @@ const deviceIdEl = document.getElementById('device-id');
 const deviceBrandEl = document.getElementById('device-brand');
 const statUptimeEl = document.getElementById('stat-uptime');
 const statBankEl = document.getElementById('stat-bank');
+const costHeaderEl = document.getElementById('th-cost');
+
+let currencySymbol = '\u20aa';
 const loginDialog = document.getElementById('login-dialog');
 const loginForm = document.getElementById('login-form');
 const loginMsg = document.getElementById('login-msg');
@@ -432,7 +435,7 @@ function buildRow(o) {
     el('td', { text: fmt(o.voltage, 2) }),
     el('td', { text: fmt(o.current, 2) }),
     el('td', { text: fmt(o.power, 2) }),
-    el('td', { text: fmt(o.monthlyCostILS, 2) }),
+    el('td', { text: fmt(o.monthlyCost, 2) }),
     actionCell,
   );
 }
@@ -568,6 +571,9 @@ async function fetchInfo() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
+    if (data.currency) currencySymbol = data.currency;
+    if (costHeaderEl) costHeaderEl.textContent = `${currencySymbol}/mo`;
+
     deviceBrandEl.replaceChildren(deviceFieldSpan('name', data.name));
     const sep = () => el('span', { cls: 'stat-sep', text: ' \u00b7 ' });
     deviceIdEl.replaceChildren(
@@ -584,7 +590,8 @@ async function fetchInfo() {
     if (Number.isFinite(b.amps) && b.maxAmps) parts.push(`${b.amps.toFixed(2)} A / ${b.maxAmps} A`);
     if (Number.isFinite(b.watts)) parts.push(`${b.watts.toFixed(0)} W`);
     if (Number.isFinite(b.kwh)) parts.push(`${b.kwh.toFixed(2)} kWh`);
-    if (Number.isFinite(b.monthlyCostILS)) parts.push(`\u20aa ${b.monthlyCostILS.toFixed(2)}/mo`);
+    if (Number.isFinite(data.ratePerKWh)) parts.push(`${currencySymbol} ${data.ratePerKWh.toFixed(2)}/kWh`);
+    if (Number.isFinite(b.monthlyCost)) parts.push(`${currencySymbol} ${b.monthlyCost.toFixed(2)}/mo`);
     statBankEl.textContent = parts.join(' \u00b7 ');
   } catch (err) {
     statUptimeEl.textContent = `error: ${err.message}`;

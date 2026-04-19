@@ -40,7 +40,8 @@ Open <http://localhost:3000>.
 | `PDU_SNMP_V3_AUTH_PASS`        | yes      | SNMPv3 auth passphrase |
 | `PDU_SNMP_V3_PRIV_PASS`        | yes      | SNMPv3 priv passphrase |
 | `AUTH_TOKEN`                   | no       | Bearer token; when set, all `/api/*` and `/health/*` require `Authorization: Bearer <token>` |
-| `ELECTRICITY_RATE_ILS_PER_KWH` | no       | Rate used for ₪/mo projection. Default `0.61` |
+| `ELECTRICITY_RATE_PER_KWH`     | no       | Rate used for the per-month cost projection. Default `0.61` |
+| `CURRENCY_SYMBOL`              | no       | Symbol shown in the UI next to costs. Default `₪`. Examples: `$`, `€`, `£`. |
 | `LOG_LEVEL`                    | no       | `error` / `warn` / `info` / `debug`. Default `info` |
 | `PORT`                         | no       | HTTP listen port. Default `3000` |
 
