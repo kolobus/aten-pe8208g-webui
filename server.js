@@ -1,5 +1,6 @@
 import express from 'express';
 import snmp from 'net-snmp';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import 'dotenv/config';
 
 const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
@@ -92,23 +93,30 @@ function toName(varbind) {
   return s.replace(/\0+$/g, '').trim();
 }
 
-const AUTH_USER = process.env.BASIC_AUTH_USER;
-const AUTH_PASS = process.env.BASIC_AUTH_PASS;
-const AUTH_ENABLED = Boolean(AUTH_USER && AUTH_PASS);
+const AUTH_TOKEN = process.env.AUTH_TOKEN;
+const AUTH_ENABLED = Boolean(AUTH_TOKEN);
+const AUTH_TOKEN_HASH = AUTH_ENABLED
+  ? createHash('sha256').update(AUTH_TOKEN).digest()
+  : null;
+
+function tokenMatches(provided) {
+  if (!provided) return false;
+  const hash = createHash('sha256').update(provided).digest();
+  return timingSafeEqual(hash, AUTH_TOKEN_HASH);
+}
 
 function requireAuth(req, res, next) {
   if (!AUTH_ENABLED) return next();
-  const header = req.headers.authorization;
-  if (header?.startsWith('Basic ')) {
-    const [u, p] = Buffer.from(header.slice(6), 'base64').toString('utf8').split(':');
-    if (u === AUTH_USER && p === AUTH_PASS) {
-      log('debug', 'auth.ok', { user: u, ip: req.ip, path: req.path });
-      return next();
-    }
-    log('warn', 'auth.fail', { user: u, ip: req.ip, path: req.path, reason: 'bad-credentials' });
-  } else {
-    log('warn', 'auth.fail', { ip: req.ip, path: req.path, reason: 'missing-header' });
+  const header = req.headers.authorization ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  if (tokenMatches(token)) {
+    log('debug', 'auth.ok', { ip: req.ip, path: req.path });
+    return next();
   }
+  log('warn', 'auth.fail', {
+    ip: req.ip, path: req.path,
+    reason: token ? 'bad-token' : 'missing-header',
+  });
   res.status(401).type('text/plain').send('Unauthorized');
 }
 
@@ -231,7 +239,7 @@ app.put('/api/outlet/:n/name', async (req, res) => {
   }
   try {
     await snmpSet(writeSession, nameOid(n), Buffer.from(name, 'utf8'), snmp.ObjectType.OctetString);
-    log('info', 'outlet.rename', { outlet: n, name, ip: req.ip, user: AUTH_USER });
+    log('info', 'outlet.rename', { outlet: n, name, ip: req.ip });
     res.json({ ok: true, outlet: n, name });
   } catch (err) {
     log('error', 'outlet.rename.failed', { outlet: n, name, message: err.message });
@@ -250,7 +258,7 @@ app.post('/api/outlet/:n/:action', async (req, res) => {
   }
   try {
     await snmpSet(writeSession, commandOid(n), value);
-    log('info', 'outlet.action', { outlet: n, action: req.params.action, ip: req.ip, user: AUTH_USER });
+    log('info', 'outlet.action', { outlet: n, action: req.params.action, ip: req.ip });
     res.json({ ok: true, outlet: n, action: req.params.action });
   } catch (err) {
     log('error', 'outlet.action.failed', {

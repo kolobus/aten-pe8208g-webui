@@ -33,19 +33,19 @@ function confirmDestructive(message) {
   });
 }
 
-const AUTH_KEY = 'pdu_auth';
+const AUTH_KEY = 'pdu_token';
 
 function getAuthHeader() {
-  const v = sessionStorage.getItem(AUTH_KEY);
-  return v ? { Authorization: 'Basic ' + v } : {};
+  const v = localStorage.getItem(AUTH_KEY);
+  return v ? { Authorization: 'Bearer ' + v } : {};
 }
 
-function setAuth(user, pass) {
-  sessionStorage.setItem(AUTH_KEY, btoa(`${user}:${pass}`));
+function setAuth(token) {
+  localStorage.setItem(AUTH_KEY, token);
 }
 
 function clearAuth() {
-  sessionStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(AUTH_KEY);
 }
 
 async function apiFetch(url, init = {}) {
@@ -69,7 +69,9 @@ function promptLogin(message = 'Authentication required.') {
     loginForm.addEventListener('submit', function handler(ev) {
       ev.preventDefault();
       const fd = new FormData(loginForm);
-      setAuth(fd.get('username'), fd.get('password'));
+      const token = fd.get('token')?.toString().trim();
+      if (!token) return;
+      setAuth(token);
       loginForm.reset();
       loginForm.removeEventListener('submit', handler);
       loginDialog.close();

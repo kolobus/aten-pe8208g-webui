@@ -38,8 +38,7 @@ All runtime config comes from environment variables (or `.env` file in the proje
 | `PDU_SNMP_V3_AUTH_PASS`    | yes      | SNMPv3 auth passphrase |
 | `PDU_SNMP_V3_PRIV_PASS`    | yes      | SNMPv3 priv passphrase |
 | `ELECTRICITY_RATE_ILS_PER_KWH` | no   | Used to project per-outlet monthly cost. Default: 0.61 |
-| `BASIC_AUTH_USER`          | no       | Enable HTTP Basic auth on `/api/*` and `/health/*` when both user and pass are set |
-| `BASIC_AUTH_PASS`          | no       | See above — both must be defined for auth to activate |
+| `AUTH_TOKEN`               | no       | Bearer token. When set, all `/api/*` and `/health/*` calls require `Authorization: Bearer <token>`. |
 | `LOG_LEVEL`                | no       | `error` / `warn` / `info` / `debug`. Default: `info` |
 | `PORT`                     | no       | HTTP listen port. Default: 3000 |
 
@@ -80,7 +79,15 @@ Plain-text endpoints intended for probe tools (Uptime Kuma, Prometheus blackbox 
 | GET    | `/health`                    | App + PDU reachability. `200 OK` if the app can talk to the PDU; `503 DOWN <reason>` otherwise. |
 | GET    | `/health/outlet/:n`          | Per-outlet *appliance* liveness based on actual power draw (see below). |
 
-When `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` are set, everything except `/live` and the static assets requires Basic auth. `/live` stays unauth so container orchestrators can probe without secrets. External monitors (Uptime Kuma, etc.) should send `Authorization: Basic <base64>` headers — all of them support this per-monitor.
+When `AUTH_TOKEN` is set, everything except `/live` and the static assets requires the bearer token. `/live` stays unauth so container orchestrators can probe without secrets.
+
+**External monitors (Uptime Kuma etc.)** — add a custom header to each monitor:
+
+| Header name       | Value                    |
+| ----------------- | ------------------------ |
+| `Authorization`   | `Bearer <your-token>`    |
+
+Uptime Kuma: *Edit monitor → HTTP Options → HTTP Headers → `{"Authorization":"Bearer xxxxxxxx"}`*.
 
 #### Outlet liveness semantics
 
