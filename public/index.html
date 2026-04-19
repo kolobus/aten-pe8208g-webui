@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDU Controller · PE8208G</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>ATEN PE8208G</h1>
+    <div id="meta"></div>
+  </header>
+
+  <section id="pdu">
+    <div class="chassis">
+      <div class="chassis-header">
+        <span class="brand">ATEN</span>
+        <span class="model">PE8208G · <span id="host">—</span></span>
+        <span class="power-led"></span>
+      </div>
+      <div class="outlets" id="outlets"></div>
+    </div>
+  </section>
+
+  <section id="telemetry" aria-live="polite">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Name</th><th>State</th><th>V</th><th>A</th><th>W</th><th>kWh</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="telemetry-body"></tbody>
+    </table>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
