@@ -37,6 +37,7 @@ All runtime config comes from environment variables (or `.env` file in the proje
 | `PDU_SNMP_V3_USER`         | yes      | SNMPv3 user for writes |
 | `PDU_SNMP_V3_AUTH_PASS`    | yes      | SNMPv3 auth passphrase |
 | `PDU_SNMP_V3_PRIV_PASS`    | yes      | SNMPv3 priv passphrase |
+| `ELECTRICITY_RATE_ILS_PER_KWH` | no   | Used to project per-outlet monthly cost. Default: 0.61 |
 | `PORT`                     | no       | HTTP listen port. Default: 3000 |
 
 SNMPv3 auth/priv protocols are hardcoded to MD5 + AES (the only combination the PE8208G responds to).

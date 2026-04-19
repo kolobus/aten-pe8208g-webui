@@ -11,6 +11,8 @@ const {
 } = process.env;
 
 const NUM_OUTLETS = 8;
+const ELECTRICITY_RATE = Number.parseFloat(process.env.ELECTRICITY_RATE_ILS_PER_KWH ?? '0.61');
+const HOURS_PER_MONTH = 730;
 const BASE = '1.3.6.1.4.1.21317.1.3.2.2.2.2';
 const commandOid = n => `${BASE}.${n + 1}.0`;
 const currentOid = n => `${BASE}.1.1.2.${n}`;
@@ -101,17 +103,19 @@ app.get('/api/status', async (_req, res) => {
     const COLS = 6;
     for (let i = 0; i < NUM_OUTLETS; i++) {
       const base = i * COLS;
+      const power = toNumber(vbs[base + 3]);
       outlets.push({
         outlet: i + 1,
         name: toName(vbs[base + 5]),
         state: STATE_NAMES[vbs[base].value] || `unknown(${vbs[base].value})`,
         current: toNumber(vbs[base + 1]),
         voltage: toNumber(vbs[base + 2]),
-        power: toNumber(vbs[base + 3]),
+        power,
         energy: toNumber(vbs[base + 4]),
+        monthlyCostILS: Number.isFinite(power) ? (power * HOURS_PER_MONTH / 1000) * ELECTRICITY_RATE : null,
       });
     }
-    res.json({ host: PDU_HOST, outlets });
+    res.json({ host: PDU_HOST, rateILSPerKWh: ELECTRICITY_RATE, outlets });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

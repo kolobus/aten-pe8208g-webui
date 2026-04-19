@@ -82,14 +82,13 @@ function buildRow(o) {
     renameOutlet(o.outlet, next);
   });
 
-  return el('tr', {},
+  return el('tr', { cls: `row-${o.state}`, title: `state: ${o.state}` },
     el('td', { text: String(o.outlet) }),
     el('td', {}, nameInput),
-    el('td', { cls: `state-${o.state}`, text: o.state.toUpperCase() }),
     el('td', { text: fmt(o.voltage, 2) }),
     el('td', { text: fmt(o.current, 2) }),
-    el('td', { text: fmt(o.power, 3) }),
-    el('td', { text: fmt(o.energy, 4) }),
+    el('td', { text: fmt(o.power, 2) }),
+    el('td', { text: fmt(o.monthlyCostILS, 2) }),
     el('td', {}, btn),
   );
 }

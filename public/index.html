@@ -27,11 +27,53 @@
     <table>
       <thead>
         <tr>
-          <th>#</th><th>Name</th><th>State</th><th>V</th><th>A</th><th>W</th><th>kWh</th><th></th>
+          <th>#</th><th>Name</th><th>V</th><th>A</th><th>W</th><th>₪/mo</th><th></th>
         </tr>
       </thead>
       <tbody id="telemetry-body"></tbody>
     </table>
+  </section>
+
+  <section id="legend">
+    <h2>Legend</h2>
+
+    <div class="legend-group">
+      <h3>Row state (left border + tint)</h3>
+      <ul class="swatches">
+        <li><span class="sw sw-on"></span><b>Green</b> — outlet is energized (on)</li>
+        <li><span class="sw sw-off"></span><b>Grey</b> — outlet is de-energized (off)</li>
+        <li><span class="sw sw-pending"></span><b>Amber</b> — transitioning (pending power-on delay / reboot in progress)</li>
+        <li><span class="sw sw-fault"></span><b>Red</b> — device reports a fault on this outlet</li>
+      </ul>
+    </div>
+
+    <div class="legend-group">
+      <h3>Columns</h3>
+      <dl>
+        <dt>#</dt>
+        <dd>Physical outlet number (1–8). Outlet 1 is the C19 (high-current) socket.</dd>
+        <dt>Name</dt>
+        <dd>User-settable outlet label stored on the device itself. Click to edit. 1–16 chars, only letters, digits, underscore and space.</dd>
+        <dt>V</dt>
+        <dd>Voltage at the outlet. ~225 V when on, 0.00 when off. Use it to confirm a shutoff actually de-energized the outlet.</dd>
+        <dt>A</dt>
+        <dd>Current draw in amps. Shows what the connected load is pulling right now.</dd>
+        <dt>W</dt>
+        <dd>Instantaneous power consumption. Roughly V × A with power-factor correction. What the load costs you per hour ÷ 1000.</dd>
+        <dt>₪/mo</dt>
+        <dd>Projected monthly spend if the current W stays constant: <code>W × 730 / 1000 × rate</code>. Rate comes from <code>ELECTRICITY_RATE_ILS_PER_KWH</code> (default 0.61).</dd>
+      </dl>
+    </div>
+
+    <div class="legend-group">
+      <h3>How to use</h3>
+      <ul>
+        <li>Click a <b>socket</b> in the chassis above to toggle it on/off.</li>
+        <li>Click an <b>outlet name</b> (card or table) to rename the outlet on the device.</li>
+        <li>Use the row button for an explicit <b>TURN ON / OFF</b> action.</li>
+        <li>Telemetry refreshes every 2 s; it pauses while you have a name field focused so edits aren't lost.</li>
+      </ul>
+    </div>
   </section>
 
   <script src="app.js"></script>
