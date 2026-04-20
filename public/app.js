@@ -17,8 +17,6 @@ const deviceIdEl = document.getElementById('device-id');
 const deviceBrandEl = document.getElementById('device-brand');
 const statUptimeEl = document.getElementById('stat-uptime');
 const statBankEl = document.getElementById('stat-bank');
-const statsUpsSection = document.getElementById('stats-ups');
-const statUpsEl = document.getElementById('stat-ups');
 const costHeaderEl = document.getElementById('th-cost');
 
 let currencySymbol = '\u20aa';
@@ -620,34 +618,6 @@ async function fetchInfo() {
     if (Number.isFinite(data.ratePerKWh)) parts.push(`${currencySymbol} ${data.ratePerKWh.toFixed(2)}/kWh`);
     if (Number.isFinite(b.monthlyCost)) parts.push(`${currencySymbol} ${b.monthlyCost.toFixed(2)}/mo`);
     statBankEl.textContent = parts.join(' \u00b7 ');
-
-    if (data.ups) {
-      const u = data.ups;
-      const sourceLabel = {
-        online: 'ONLINE',
-        battery: 'ON BATTERY',
-        bypass: 'BYPASS',
-        booster: 'BOOSTING',
-        reducer: 'REDUCING',
-        none: 'NO OUTPUT',
-      }[u.source] ?? u.source.toUpperCase();
-      const rest = [
-        u.model,
-        sourceLabel,
-        `batt ${u.chargePct}%`,
-        `~${u.runtimeMin} min`,
-        `load ${u.loadPct}% (${u.watts} W)`,
-        `in ${u.inputVolts} V`,
-      ].join(' \u00b7 ');
-      statUpsEl.replaceChildren(
-        el('span', { cls: 'ups-label', text: 'UPS' }),
-        el('span', { text: ' ' + rest }),
-      );
-      statsUpsSection.hidden = false;
-      statsUpsSection.dataset.state = u.source;
-    } else {
-      statsUpsSection.hidden = true;
-    }
   } catch (err) {
     statUptimeEl.textContent = `error: ${err.message}`;
   }

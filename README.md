@@ -48,10 +48,6 @@ Open <http://localhost:3000>.
 | `CURRENCY_SYMBOL`              | no       | Symbol shown in the UI next to costs. Default `₪`. Examples: `$`, `€`, `£`. |
 | `LOG_LEVEL`                    | no       | `error` / `warn` / `info` / `debug`. Default `info` |
 | `PORT`                         | no       | HTTP listen port. Default `3000` |
-| `UPS_HOST`                     | no       | IP of an Eaton UPS (tested on 5P with NMC v6). When set along with the three `UPS_SNMP_V3_*` vars, the UI shows a second stats line with UPS status. |
-| `UPS_SNMP_V3_USER`             | no       | SNMPv3 user on the UPS |
-| `UPS_SNMP_V3_AUTH_PASS`        | no       | SNMPv3 auth passphrase (hardcoded MD5) |
-| `UPS_SNMP_V3_PRIV_PASS`        | no       | SNMPv3 priv passphrase (hardcoded DES — Eaton NMC v6 doesn't speak AES) |
 
 SNMPv3 protocols are hardcoded to **MD5 + AES** — the only combination the PE8208G responds to.
 

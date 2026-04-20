@@ -99,43 +99,6 @@ h1 { margin: 0; font-size: 16px; letter-spacing: 2px; font-weight: 500; }
   align-items: center;
 }
 #stats .stat-sep { color: #3a4150; }
-#stats .pdu-label {
-  background: var(--on);
-  color: #07140c;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  margin-right: 6px;
-  font-size: 11px;
-}
-
-#stats-ups {
-  max-width: 1100px;
-  margin: 8px auto 0;
-  padding: 10px 18px;
-  background: var(--panel);
-  border: 1px solid #23272f;
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-body:not(.ready) #stats-ups { display: none; }
-
-#stats-ups .ups-label {
-  background: var(--on);
-  color: #07140c;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  margin-right: 6px;
-  font-size: 11px;
-}
-#stats-ups[data-state="battery"] .ups-label { background: var(--pending); color: #1c0f00; }
-#stats-ups[data-state="bypass"]  .ups-label { background: var(--pending); color: #1c0f00; }
-#stats-ups[data-state="none"]    .ups-label { background: var(--fault);   color: #fff; }
 
 #pdu { max-width: 1100px; margin: 0 auto; }
 
