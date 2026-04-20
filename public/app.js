@@ -227,6 +227,28 @@ async function handleModeChange(outlet, name, current) {
   });
 
   if (!choice || choice === current) return;
+
+  const wasWol = current === 'wake-on-lan';
+  const willBeWol = choice === 'wake-on-lan';
+  if (wasWol || willBeWol) {
+    const o = outletByNum(outlet);
+    const label = name ? `"${name}"` : `outlet ${outlet}`;
+    let msg;
+    if (wasWol && !willBeWol) {
+      const sleeping = o?.state === 'off';
+      msg = `Switch ${label} from WOL to ${SHORT_NAMES[choice]}?\n\nWOL mode keeps the outlet permanently energized so the host can sleep without losing AC.${sleeping
+        ? ` This outlet currently reads OFF — meaning the host is asleep with AC still flowing. Switching mode will hard-cut power immediately, killing the host without a graceful shutdown.`
+        : ` While the host is awake the switch is mostly cosmetic, but a future "off" command will hard-cut instead of asking the host to sleep gracefully.`}`;
+    } else {
+      const off = o?.state === 'off';
+      msg = `Switch ${label} to WOL from ${SHORT_NAMES[current]}?\n\nWOL mode keeps the outlet permanently energized so the host's NIC can hear magic packets.${off
+        ? ` This outlet is currently OFF — switching to WOL will likely energize it and cold-boot the connected device.`
+        : ` Future "off" commands will become a graceful sleep request via ATEN's Safe-Shutdown agent (which must be installed on the host) instead of cutting power.`}`;
+    }
+    const ok = await confirmDestructive(msg);
+    if (!ok) return;
+  }
+
   setShutdownMethod(outlet, choice);
 }
 
