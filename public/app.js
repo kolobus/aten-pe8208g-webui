@@ -353,22 +353,28 @@ function buildCard(o) {
     el('span', { cls: 'meta-sep', text: ' · ' }),
     el('span', { text: `${fmt(o.power, 1)}W` }),
   );
+  const cardWol = o.shutdownMethod === 'wake-on-lan' && Number.isFinite(o.voltage) && o.voltage > 0;
   return el('div', {
-    cls: `outlet ${o.state}${o.locked ? ' locked' : ''}`,
-    title: `Outlet ${o.outlet}: ${o.name || ''}${o.locked ? ' (locked)' : ''}`,
+    cls: `outlet ${o.state}${o.locked ? ' locked' : ''}${cardWol ? ' wol' : ''}`,
+    title: `Outlet ${o.outlet}: ${o.name || ''}${o.locked ? ' (locked)' : ''}${cardWol ? ' (WOL mode)' : ''}`,
   }, nameEl, socket, readouts);
 }
 
 function buildRow(o) {
+  const hasPower = Number.isFinite(o.voltage) && o.voltage > 0;
+  const useWolLabels = o.shutdownMethod === 'wake-on-lan' && hasPower;
   const nextAction = o.state === 'on' ? 'off' : 'on';
+  const labels = useWolLabels
+    ? { on: 'WAKE', off: 'SLEEP', reboot: 'REBOOT' }
+    : { on: 'TURN ON', off: 'TURN OFF', reboot: 'REBOOT' };
   const toggle = el('button', {
     cls: `toggle ${o.state === 'on' ? 'danger' : ''}`,
-    text: `TURN ${nextAction.toUpperCase()}`,
+    text: labels[nextAction],
   });
   toggle.addEventListener('click', () => controlOutlet(o.outlet, nextAction));
 
   const reboot = o.state === 'on'
-    ? el('button', { cls: 'toggle warn', text: 'REBOOT', title: 'Power-cycle this outlet' })
+    ? el('button', { cls: 'toggle warn', text: labels.reboot, title: 'Power-cycle this outlet' })
     : null;
   if (reboot) reboot.addEventListener('click', () => controlOutlet(o.outlet, 'reboot'));
 
@@ -424,7 +430,7 @@ function buildRow(o) {
     actionCell.appendChild(lockBtn);
   }
 
-  return el('tr', { cls: `row-${o.state}`, title: `state: ${o.state}` },
+  return el('tr', { cls: `row-${o.state}${useWolLabels ? ' wol' : ''}`, title: `state: ${o.state}${useWolLabels ? ' (WOL mode)' : ''}` },
     el('td', { text: String(o.outlet) }),
     nameCell,
     el('td', { text: fmt(o.voltage, 2) }),
@@ -481,7 +487,10 @@ async function controlOutlet(n, action) {
   const o = outletByNum(n);
   const label = o?.name ? `"${o.name}"` : `outlet ${n}`;
   const draw = Number.isFinite(o?.power) && o.power > 0 ? ` drawing ${o.power.toFixed(1)} W` : '';
-  const verbs = { on: 'Turn ON', off: 'Turn OFF', reboot: 'REBOOT' };
+  const wolMode = o?.shutdownMethod === 'wake-on-lan' && Number.isFinite(o?.voltage) && o.voltage > 0;
+  const verbs = wolMode
+    ? { on: 'Wake', off: 'Sleep', reboot: 'Reboot' }
+    : { on: 'Turn ON', off: 'Turn OFF', reboot: 'REBOOT' };
   const ok = await confirmDestructive(`${verbs[action] ?? action.toUpperCase()} ${label}${draw}?`);
   if (!ok) return;
   metaEl.textContent = `outlet ${n} → ${action}…`;

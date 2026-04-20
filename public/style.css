@@ -11,6 +11,8 @@
   --pending: #f59e0b;
   --fault: #ef4444;
   --accent: #6ee7b7;
+  --wol-awake: #60a5fa;
+  --wol-asleep: #6366f1;
 }
 
 * { box-sizing: border-box; }
@@ -170,6 +172,9 @@ h1 { margin: 0; font-size: 16px; letter-spacing: 2px; font-weight: 500; }
 .outlet.pending,
 .outlet.reboot  { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.60); }
 .outlet.fault   { background: rgba(239, 68, 68, 0.12);  border-color: rgba(239, 68, 68, 0.60); }
+/* WOL mode: outlet always powered, on/off becomes awake/asleep */
+.outlet.wol.on  { background: rgba(96, 165, 250, 0.12); border-color: rgba(96, 165, 250, 0.55); }
+.outlet.wol.off { background: rgba(99, 102, 241, 0.10); border-color: rgba(99, 102, 241, 0.45); }
 .outlet.off .socket { opacity: 0.55; }
 .outlet:not(.locked) .socket { cursor: pointer; }
 .outlet.locked .socket { cursor: not-allowed; opacity: 0.45; filter: saturate(0.5); }
@@ -453,12 +458,17 @@ h1 { margin: 0; font-size: 16px; letter-spacing: 2px; font-weight: 500; }
 #telemetry tr.row-pending,
 #telemetry tr.row-reboot       { background: rgba(245, 158, 11, 0.12); }
 #telemetry tr.row-fault        { background: rgba(239, 68, 68, 0.14); }
+/* WOL mode overrides: powered outlet, awake/asleep semantics */
+#telemetry tr.row-on.wol       { background: rgba(96, 165, 250, 0.12); }
+#telemetry tr.row-off.wol      { background: rgba(99, 102, 241, 0.10); }
 
 #telemetry tr.row-off     td:first-child { border-left-color: var(--off); }
 #telemetry tr.row-on      td:first-child { border-left-color: var(--on); }
 #telemetry tr.row-pending td:first-child,
 #telemetry tr.row-reboot  td:first-child { border-left-color: var(--pending); }
 #telemetry tr.row-fault   td:first-child { border-left-color: var(--fault); }
+#telemetry tr.row-on.wol  td:first-child { border-left-color: var(--wol-awake); }
+#telemetry tr.row-off.wol td:first-child { border-left-color: var(--wol-asleep); }
 
 button.toggle {
   background: transparent;
@@ -726,10 +736,12 @@ footer a {
 }
 footer a:hover { color: var(--accent); }
 
-.sw-on      { background: var(--on); }
-.sw-off     { background: var(--off); }
-.sw-pending { background: var(--pending); }
-.sw-fault   { background: var(--fault); }
+.sw-on         { background: var(--on); }
+.sw-off        { background: var(--off); }
+.sw-pending    { background: var(--pending); }
+.sw-fault      { background: var(--fault); }
+.sw-wol-awake  { background: var(--wol-awake); }
+.sw-wol-asleep { background: var(--wol-asleep); }
 
 @media (max-width: 700px) {
   body {
@@ -788,6 +800,8 @@ footer a:hover { color: var(--accent); }
   }
   #telemetry tr.row-on      { border-left-color: var(--on); }
   #telemetry tr.row-off     { border-left-color: var(--off); }
+  #telemetry tr.row-on.wol  { border-left-color: var(--wol-awake); }
+  #telemetry tr.row-off.wol { border-left-color: var(--wol-asleep); }
   #telemetry tr.row-pending,
   #telemetry tr.row-reboot  { border-left-color: var(--pending); }
   #telemetry tr.row-fault   { border-left-color: var(--fault); }

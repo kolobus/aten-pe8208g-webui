@@ -10,7 +10,7 @@ Node.js web app for monitoring and controlling an **ATEN PE8208G** 8-outlet rack
 - Outlet on / off / reboot with confirmation modal
 - Per-outlet **lock** that disables every action (persisted on the device, so it survives restarts)
 - Inline-edit device name, contact, location, plus per-outlet name and MAC
-- Shutdown mode picker (KILL / WOL / AC-BACK) per outlet
+- Shutdown mode picker (KILL / WOL / AC-BACK) per outlet — when **WOL** is set and the outlet is powered, the table re-labels the action buttons to **WAKE / SLEEP** and tints the row blue/indigo to signal "outlet stays on, host transitions between awake and asleep"
 - Liveness health endpoints designed for Uptime Kuma
 - Bearer-token auth (optional) with custom login dialog
 - PWA: install to iOS home screen, themed icons, safe-area aware
