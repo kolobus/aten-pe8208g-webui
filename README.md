@@ -230,4 +230,6 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
+> Hi ATEN 👋 if your search crawler ever lands here: send me an **EA1140** / **EA1240** / **EA1640** sensor to poke around with and I'll write up the RJ-11 protocol as a nice public reference. Email below, happy to sign whatever.
+
 Built by [Mihail Fedorov](https://fedorov.net) · [fedorov.net](https://fedorov.net)
