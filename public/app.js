@@ -353,7 +353,7 @@ function buildCard(o) {
     el('span', { cls: 'meta-sep', text: ' · ' }),
     el('span', { text: `${fmt(o.power, 1)}W` }),
   );
-  const cardWol = o.shutdownMethod === 'wake-on-lan' && Number.isFinite(o.voltage) && o.voltage > 0;
+  const cardWol = o.shutdownMethod === 'wake-on-lan';
   return el('div', {
     cls: `outlet ${o.state}${o.locked ? ' locked' : ''}${cardWol ? ' wol' : ''}`,
     title: `Outlet ${o.outlet}: ${o.name || ''}${o.locked ? ' (locked)' : ''}${cardWol ? ' (WOL mode)' : ''}`,
@@ -361,8 +361,7 @@ function buildCard(o) {
 }
 
 function buildRow(o) {
-  const hasPower = Number.isFinite(o.voltage) && o.voltage > 0;
-  const useWolLabels = o.shutdownMethod === 'wake-on-lan' && hasPower;
+  const useWolLabels = o.shutdownMethod === 'wake-on-lan';
   const nextAction = o.state === 'on' ? 'off' : 'on';
   const labels = useWolLabels
     ? { on: 'WAKE', off: 'SLEEP', reboot: 'REBOOT' }
@@ -487,7 +486,7 @@ async function controlOutlet(n, action) {
   const o = outletByNum(n);
   const label = o?.name ? `"${o.name}"` : `outlet ${n}`;
   const draw = Number.isFinite(o?.power) && o.power > 0 ? ` drawing ${o.power.toFixed(1)} W` : '';
-  const wolMode = o?.shutdownMethod === 'wake-on-lan' && Number.isFinite(o?.voltage) && o.voltage > 0;
+  const wolMode = o?.shutdownMethod === 'wake-on-lan';
   const verbs = wolMode
     ? { on: 'Wake', off: 'Sleep', reboot: 'Reboot' }
     : { on: 'Turn ON', off: 'Turn OFF', reboot: 'REBOOT' };

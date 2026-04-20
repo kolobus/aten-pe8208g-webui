@@ -10,7 +10,7 @@ Node.js web app for monitoring and controlling an **ATEN PE8208G** 8-outlet rack
 - Outlet on / off / reboot with confirmation modal
 - Per-outlet **lock** that disables every action (persisted on the device, so it survives restarts)
 - Inline-edit device name, contact, location, plus per-outlet name and MAC
-- Shutdown mode picker (KILL / WOL / AC-BACK) per outlet — when **WOL** is set and the outlet is powered, the table re-labels the action buttons to **WAKE / SLEEP** and tints the row blue/indigo to signal "outlet stays on, host transitions between awake and asleep"
+- Shutdown mode picker (KILL / WOL / AC-BACK) per outlet. **WOL** flips the metaphor — see below.
 - Liveness health endpoints designed for Uptime Kuma
 - Bearer-token auth (optional) with custom login dialog
 - PWA: install to iOS home screen, themed icons, safe-area aware
@@ -105,6 +105,19 @@ Plain-text, status-code-driven. No keyword matching needed.
 | Small server / NUC     | 30–80 W      | `…/health/outlet/3?min=25`    |
 | Workstation            | 80+ W        | `…/health/outlet/3?min=40`    |
 | Current-sensitive load | any          | `…/health/outlet/3?min_a=0.1` |
+
+## WOL mode is a sleep/wake controller, not a power controller
+
+Setting an outlet's mode to `wake-on-lan` changes its semantics on the PDU:
+
+- **The outlet is never actually de-energized.** AC keeps flowing so the host's NIC can listen for magic packets (and so ATEN's Safe-Shutdown agent on the host can keep its TCP socket alive).
+- **"On" command** → PDU sends a Wake-on-LAN magic packet to the configured outlet MAC. The host (which is asleep in S3/S5) wakes up.
+- **"Off" command** → PDU sends a graceful-shutdown notification to the host (via the proprietary ATEN Safe-Shutdown agent the host needs to be running). The host suspends. AC stays on.
+- The on/off state we read back from SNMP **tracks the host's awake/sleep, not the outlet's power**.
+
+So in WOL mode the controller behaves like a remote sleep button, not like a relay. None of this works without ATEN's Safe-Shutdown agent installed on the connected machine — without the agent, the "off" command effectively just times out and the PDU eventually cuts power anyway.
+
+The UI reflects the reframe: when an outlet is in WOL mode the row tints blue/indigo (instead of green/grey) and the action buttons read **WAKE** / **SLEEP** (instead of **TURN ON** / **TURN OFF**).
 
 ## Outlet lock
 

@@ -149,7 +149,7 @@
         <dt>KILL</dt>
         <dd><code>kill-the-power</code> — default. Off cuts power immediately; on restores it immediately.</dd>
         <dt>WOL</dt>
-        <dd><code>wake-on-lan</code> — on sends a Wake-on-LAN magic packet to the outlet's MAC; off asks ATEN's Safe-Shutdown agent on the host to shut down cleanly first. Useless unless that agent is installed on the connected machine. While the outlet has voltage, the table buttons read <code>WAKE</code> / <code>SLEEP</code> instead of <code>TURN ON</code> / <code>TURN OFF</code>, and the row tints blue/indigo to flag that the outlet stays powered. If the outlet is fully de-energized the labels revert to the regular <code>TURN ON</code> (cold boot needed).</dd>
+        <dd><code>wake-on-lan</code> — <strong>the outlet is never actually powered off</strong>. The on command sends a Wake-on-LAN magic packet to the outlet's MAC; the off command asks ATEN's Safe-Shutdown agent on the host to shut down cleanly into standby. Useless unless that agent is installed on the connected machine. The on/off state we read tracks the host's awake/sleep, not the outlet's power. Buttons read <code>WAKE</code> / <code>SLEEP</code> and rows tint blue/indigo to flag this.</dd>
         <dt>AC-BACK</dt>
         <dd><code>after-ac-back</code> — niche. Off command does <strong>not</strong> cut power immediately; it defers the shutdown until the next AC power event. <strong>This is not the "restore previous state on power loss" setting</strong> — that one lives in the PDU's firmware Power Recovery option, configurable only via the web UI.</dd>
       </dl>
