@@ -67,6 +67,54 @@ const writeSession = snmp.createV3Session(PDU_HOST, {
   privKey: PDU_SNMP_V3_PRIV_PASS,
 });
 
+const UPS_HOST = process.env.UPS_HOST;
+const UPS_USER = process.env.UPS_SNMP_V3_USER;
+const UPS_AUTH_PASS = process.env.UPS_SNMP_V3_AUTH_PASS;
+const UPS_PRIV_PASS = process.env.UPS_SNMP_V3_PRIV_PASS;
+const UPS_ENABLED = Boolean(UPS_HOST && UPS_USER && UPS_AUTH_PASS && UPS_PRIV_PASS);
+
+const upsSession = UPS_ENABLED ? snmp.createV3Session(UPS_HOST, {
+  name: UPS_USER,
+  level: snmp.SecurityLevel.authPriv,
+  authProtocol: snmp.AuthProtocols.md5,
+  authKey: UPS_AUTH_PASS,
+  privProtocol: snmp.PrivProtocols.des,
+  privKey: UPS_PRIV_PASS,
+}) : null;
+
+const UPS_BATTERY_STATUS = { 1: 'unknown', 2: 'normal', 3: 'low', 4: 'depleted' };
+const UPS_OUTPUT_SOURCE  = { 1: 'other', 2: 'none', 3: 'online', 4: 'bypass', 5: 'battery', 6: 'booster', 7: 'reducer' };
+
+async function readUps() {
+  if (!UPS_ENABLED) return null;
+  try {
+    const vbs = await snmpGet(upsSession, [
+      '1.3.6.1.2.1.33.1.1.2.0',
+      '1.3.6.1.2.1.33.1.2.1.0',
+      '1.3.6.1.2.1.33.1.2.3.0',
+      '1.3.6.1.2.1.33.1.2.4.0',
+      '1.3.6.1.2.1.33.1.4.1.0',
+      '1.3.6.1.2.1.33.1.4.4.1.4.1',
+      '1.3.6.1.2.1.33.1.4.4.1.5.1',
+      '1.3.6.1.2.1.33.1.3.3.1.3.1',
+    ]);
+    return {
+      host: UPS_HOST,
+      model: toName(vbs[0]),
+      batteryStatus: UPS_BATTERY_STATUS[vbs[1].value] ?? `unknown(${vbs[1].value})`,
+      runtimeMin: vbs[2].value,
+      chargePct: vbs[3].value,
+      source: UPS_OUTPUT_SOURCE[vbs[4].value] ?? `unknown(${vbs[4].value})`,
+      watts: vbs[5].value,
+      loadPct: vbs[6].value,
+      inputVolts: vbs[7].value,
+    };
+  } catch (err) {
+    log('warn', 'ups.read.failed', { message: err.message });
+    return null;
+  }
+}
+
 function snmpGet(session, oids) {
   return new Promise((resolve, reject) => {
     session.get(oids, (err, varbinds) => {
@@ -193,6 +241,7 @@ app.get('/api/info', async (_req, res) => {
     ]);
     const amps  = toNumber(vbs[4]);
     const watts = toNumber(vbs[6]);
+    const ups = await readUps();
     res.json({
       host: PDU_HOST,
       name: toName(vbs[0]),
@@ -201,6 +250,7 @@ app.get('/api/info', async (_req, res) => {
       uptimeSec: Math.floor((vbs[3].value ?? 0) / 100),
       currency: CURRENCY_SYMBOL,
       ratePerKWh: ELECTRICITY_RATE,
+      ups,
       bank: {
         amps,
         volts:  toNumber(vbs[5]),
