@@ -4,6 +4,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM node:22-alpine AS runner
+ARG BUILD_ID
+ENV BUILD_ID=${BUILD_ID}
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000

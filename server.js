@@ -1,7 +1,11 @@
 import express from 'express';
 import snmp from 'net-snmp';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import 'dotenv/config';
+
+const BUILD_ID = process.env.BUILD_ID ?? Date.now().toString(36);
+const INDEX_HTML = readFileSync('public/index.html', 'utf8').replace(/__BUILD__/g, BUILD_ID);
 
 const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 };
 const LOG_LEVEL = LOG_LEVELS[process.env.LOG_LEVEL?.toLowerCase()] ?? LOG_LEVELS.info;
@@ -137,7 +141,8 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(express.json());
-app.use(express.static('public'));
+app.get('/', (_req, res) => res.type('html').send(INDEX_HTML));
+app.use(express.static('public', { index: false }));
 
 app.get('/live', (_req, res) => res.type('text/plain').send('OK'));
 

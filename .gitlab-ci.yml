@@ -32,6 +32,7 @@ build:image:
       /kaniko/executor \
         --context "${CI_PROJECT_DIR}" \
         --dockerfile "${CI_PROJECT_DIR}/Dockerfile" \
+        --build-arg "BUILD_ID=${CI_COMMIT_SHA}" \
         $DEST_ARGS \
         --cache=true \
         --cache-repo="${CI_REGISTRY_IMAGE}/cache" \
