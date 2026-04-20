@@ -115,7 +115,9 @@ Setting an outlet's mode to `wake-on-lan` changes its semantics on the PDU:
 - **"Off" command** → PDU sends a graceful-shutdown notification to the host (via the proprietary ATEN Safe-Shutdown agent the host needs to be running). The host suspends. AC stays on.
 - The on/off state we read back from SNMP **tracks the host's awake/sleep, not the outlet's power**.
 
-So in WOL mode the controller behaves like a remote sleep button, not like a relay. None of this works without ATEN's Safe-Shutdown agent installed on the connected machine — without the agent, the "off" command effectively just times out and the PDU eventually cuts power anyway.
+So in WOL mode the controller behaves like a remote sleep button, not like a relay. None of this works without a Safe-Shutdown agent installed on the connected machine — without the agent, the "off" command effectively just times out and the PDU eventually cuts power anyway.
+
+**Companion agent: [kolobus/pdu-shutdown-agent](https://github.com/kolobus/pdu-shutdown-agent)** — clean-room replacement for ATEN's proprietary host daemon. Tiny Go binary, reverse-engineered from packet captures; ships as `.deb` / `.rpm` / `.apk` / static tarball. Config: NIC, PDU source IP, and the shutdown command to run. Installs in under a minute, logs every trigger to journald.
 
 The UI reflects the reframe: when an outlet is in WOL mode the row tints blue/indigo (instead of green/grey) and the action buttons read **WAKE** / **SLEEP** (instead of **TURN ON** / **TURN OFF**).
 
