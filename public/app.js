@@ -626,6 +626,6 @@ async function fetchInfo() {
 async function init() {
   await fetchStatus();
   fetchInfo();
-  setInterval(fetchStatus, POLL_MS);
+  setInterval(() => { fetchStatus(); fetchInfo(); }, POLL_MS);
 }
 init();
