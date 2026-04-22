@@ -761,7 +761,7 @@ footer a:hover { color: var(--accent); }
   .brand { padding: 2px 6px; letter-spacing: 2px; }
 
   .outlets {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     overflow-x: visible;
     gap: 8px;
     padding-bottom: 0;
